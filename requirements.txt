@@ -1,0 +1,33 @@
+# ---- core service ----
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-multipart==0.0.20
+email-validator==2.2.0
+httpx==0.28.1
+redis==5.2.1
+typer==0.15.1
+PyYAML==6.0.2
+numpy==2.2.1
+tenacity==9.0.0
+
+# ---- agent / LLM orchestration ----
+langgraph==0.2.60
+langchain-core==0.3.28
+langchain-text-splitters==0.3.4
+
+# ---- retrieval ----
+pypdf==5.1.0
+rank-bm25==0.2.2
+beautifulsoup4==4.12.3
+
+# ---- observability ----
+structlog==24.4.0
+prometheus-client==0.21.1
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
+opentelemetry-exporter-otlp-proto-http==1.29.0
+opentelemetry-instrumentation-fastapi==0.50b0
+opentelemetry-instrumentation-httpx==0.50b0
+opentelemetry-instrumentation-redis==0.50b0

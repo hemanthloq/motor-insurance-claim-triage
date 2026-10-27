@@ -1,0 +1,87 @@
+# =============================================================================
+#  Prompt registry (L2)
+#
+#  A prompt is an artifact with a version and an owner. Selecting a set is
+#  configuration (PROMPT_SET), not a code change, which is what makes the A/B
+#  comparison in docs/evaluation.md reproducible.
+#
+#  Every prompt file carries a [[STEP:<name>]] tag in its system section. Three
+#  things read that tag: the stub provider, to decide what shape of response to
+#  return; the cost attribution, to label tokens by step; and a human reading a
+#  captured prompt in a trace.
+# =============================================================================
+
+default_set: v2
+
+sets:
+  v1:
+    version: "1.0"
+    owner: claims-engineering
+    status: baseline
+    summary: >
+      The straightforward implementation described in section 5 of the brief.
+      Retrieve, then answer from what was retrieved. Kept in the repository as
+      the baseline the current set is measured against, not as dead weight.
+    prompts:
+      intake_classification:
+        notes: Classify and extract entities from the FNOL.
+      query_formulation:
+        notes: Propose follow-up queries. In v1 this is a weak hint only.
+      coverage_analysis:
+        notes: State a coverage position from the retrieved passages.
+      verification:
+        notes: Check the answer against the passages.
+      routing:
+        notes: Choose a queue and justify it.
+
+  v2:
+    version: "2.0"
+    owner: claims-engineering
+    status: current
+    summary: >
+      The current set. Four changes from v1, each aimed at one observed failure
+      mode rather than at general prompt hygiene.
+    changes:
+      - id: C1
+        step: query_formulation
+        change: >
+          Names the four ways a grant can be displaced in this corpus
+          (limitations as to use, driver's clause, general exceptions,
+          conditions precedent) and requires the model to state, for each,
+          whether it has checked it. v1 asked for "any other relevant clauses",
+          which the model answered by restating the clause it had already found.
+        targets: the section 4.1 failure -- the modifying provision is never searched for
+      - id: C2
+        step: coverage_analysis
+        change: >
+          Requires a verbatim quote per citation, bounded to 40 words, and
+          forbids paraphrase inside the quote field. v1 allowed a summary,
+          which made citation resolution unverifiable.
+        targets: groundedness and citation resolution
+      - id: C3
+        step: coverage_analysis
+        change: >
+          Adds an explicit `undetermined` position with the instruction to use
+          it rather than guess, and requires `open_questions` to be non-empty
+          whenever confidence is below 0.6.
+        targets: hallucination rate on out-of-corpus questions (F7)
+      - id: C4
+        step: verification
+        change: >
+          Changes the verifier from "is this answer reasonable" to a per-claim
+          entailment check against the quoted spans, returning the specific
+          statements that failed.
+        targets: faithfulness, and making A3 enforceable rather than advisory
+    prompts:
+      intake_classification:
+        notes: Classify and extract entities from the FNOL.
+      query_formulation:
+        notes: >
+          The step that distinguishes an agent from a pipeline. Decides whether
+          a modifying provision might exist and what to search for.
+      coverage_analysis:
+        notes: State a coverage position, grounded, with verbatim citations.
+      verification:
+        notes: Per-claim entailment check against the retrieved spans.
+      routing:
+        notes: Choose a queue and justify it.

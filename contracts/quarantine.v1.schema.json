@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "default": "error",
+          "enum": [
+            "error",
+            "warning"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "observed": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed"
+        }
+      },
+      "required": [
+        "field",
+        "rule",
+        "message"
+      ],
+      "title": "ValidationIssue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What is written when a submission is rejected at the boundary (D1, F2).",
+  "properties": {
+    "quarantine_id": {
+      "title": "Quarantine Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "received_at": {
+      "format": "date-time",
+      "title": "Received At",
+      "type": "string"
+    },
+    "claim_reference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Reference"
+    },
+    "client_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Client Id"
+    },
+    "stage": {
+      "enum": [
+        "schema",
+        "cross_field",
+        "guardrail",
+        "rate_limit"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/ValidationIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+    },
+    "raw_payload": {
+      "title": "Raw Payload",
+      "type": "object"
+    },
+    "agent_run_started": {
+      "const": false,
+      "default": false,
+      "title": "Agent Run Started",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "quarantine_id",
+    "correlation_id",
+    "received_at",
+    "stage",
+    "issues",
+    "raw_payload"
+  ],
+  "title": "QuarantineRecord",
+  "type": "object",
+  "$id": "https://claim-triage.local/contracts/quarantine.v1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

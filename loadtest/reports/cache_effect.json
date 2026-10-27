@@ -1,0 +1,34 @@
+[
+  {
+    "label": "cache-on-repeated",
+    "runs": 20,
+    "p50_s": 0.108,
+    "p95_s": 0.109,
+    "mean_tokens_per_run": 738.5,
+    "total_tokens": 14771
+  },
+  {
+    "label": "cache-off-repeated",
+    "runs": 20,
+    "p50_s": 2.267,
+    "p95_s": 2.368,
+    "mean_tokens_per_run": 14771,
+    "total_tokens": 295420
+  },
+  {
+    "label": "cache-on-unique",
+    "runs": 20,
+    "p50_s": 2.21,
+    "p95_s": 2.38,
+    "mean_tokens_per_run": 14030.5,
+    "total_tokens": 280611
+  },
+  {
+    "label": "cache-off-unique",
+    "runs": 20,
+    "p50_s": 2.241,
+    "p95_s": 2.398,
+    "mean_tokens_per_run": 14770,
+    "total_tokens": 295400
+  }
+]

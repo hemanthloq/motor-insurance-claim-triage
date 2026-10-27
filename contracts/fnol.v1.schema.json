@@ -1,0 +1,372 @@
+{
+  "$defs": {
+    "Channel": {
+      "enum": [
+        "call_centre",
+        "mobile_app",
+        "web_form",
+        "branch",
+        "broker"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "DriverDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "age": {
+          "maximum": 100,
+          "minimum": 16,
+          "title": "Age",
+          "type": "integer"
+        },
+        "licence_number": {
+          "maxLength": 24,
+          "minLength": 5,
+          "title": "Licence Number",
+          "type": "string"
+        },
+        "licence_valid_on_date_of_loss": {
+          "title": "Licence Valid On Date Of Loss",
+          "type": "boolean"
+        },
+        "relationship_to_insured": {
+          "enum": [
+            "self",
+            "spouse",
+            "family",
+            "employee",
+            "friend",
+            "paid_driver",
+            "other"
+          ],
+          "title": "Relationship To Insured",
+          "type": "string"
+        },
+        "holds_learner_licence_only": {
+          "default": false,
+          "title": "Holds Learner Licence Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "age",
+        "licence_number",
+        "licence_valid_on_date_of_loss",
+        "relationship_to_insured"
+      ],
+      "title": "DriverDetails",
+      "type": "object"
+    },
+    "IncidentDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "description": "Free text as given by the customer. This is the only unbounded field that reaches a model; it is guardrailed before it does.",
+          "maxLength": 4000,
+          "minLength": 10,
+          "title": "Description",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/IncidentLocation"
+        },
+        "vehicle_use_at_time_of_loss": {
+          "$ref": "#/$defs/VehicleUse",
+          "default": "not_stated"
+        },
+        "vehicle_drivable": {
+          "title": "Vehicle Drivable",
+          "type": "boolean"
+        },
+        "third_party_involved": {
+          "title": "Third Party Involved",
+          "type": "boolean"
+        },
+        "third_party_injuries_reported": {
+          "default": false,
+          "title": "Third Party Injuries Reported",
+          "type": "boolean"
+        },
+        "occupant_injuries_reported": {
+          "default": false,
+          "title": "Occupant Injuries Reported",
+          "type": "boolean"
+        },
+        "police_report_filed": {
+          "default": false,
+          "title": "Police Report Filed",
+          "type": "boolean"
+        },
+        "fir_number": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fir Number"
+        },
+        "vehicle_stolen": {
+          "default": false,
+          "title": "Vehicle Stolen",
+          "type": "boolean"
+        },
+        "airbags_deployed": {
+          "default": false,
+          "title": "Airbags Deployed",
+          "type": "boolean"
+        },
+        "towed_from_scene": {
+          "default": false,
+          "title": "Towed From Scene",
+          "type": "boolean"
+        },
+        "estimated_repair_cost_inr": {
+          "maximum": 50000000.0,
+          "minimum": 0.0,
+          "title": "Estimated Repair Cost Inr",
+          "type": "number"
+        },
+        "witnesses_present": {
+          "default": false,
+          "title": "Witnesses Present",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "description",
+        "location",
+        "vehicle_drivable",
+        "third_party_involved",
+        "estimated_repair_cost_inr"
+      ],
+      "title": "IncidentDetails",
+      "type": "object"
+    },
+    "IncidentLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "city": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "City",
+          "type": "string"
+        },
+        "state_code": {
+          "maxLength": 2,
+          "minLength": 2,
+          "title": "State Code",
+          "type": "string"
+        },
+        "pincode": {
+          "maxLength": 6,
+          "minLength": 6,
+          "title": "Pincode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "city",
+        "state_code",
+        "pincode"
+      ],
+      "title": "IncidentLocation",
+      "type": "object"
+    },
+    "VehicleDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "registration_number": {
+          "examples": [
+            "KA01MJ2023"
+          ],
+          "maxLength": 16,
+          "minLength": 4,
+          "title": "Registration Number",
+          "type": "string"
+        },
+        "make": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Make",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "year_of_manufacture": {
+          "maximum": 2100,
+          "minimum": 1950,
+          "title": "Year Of Manufacture",
+          "type": "integer"
+        },
+        "insured_declared_value_inr": {
+          "maximum": 50000000.0,
+          "minimum": 10000.0,
+          "title": "Insured Declared Value Inr",
+          "type": "number"
+        },
+        "odometer_km": {
+          "anyOf": [
+            {
+              "maximum": 2000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Odometer Km"
+        }
+      },
+      "required": [
+        "registration_number",
+        "make",
+        "model",
+        "year_of_manufacture",
+        "insured_declared_value_inr"
+      ],
+      "title": "VehicleDetails",
+      "type": "object"
+    },
+    "VehicleUse": {
+      "description": "Declared use of the vehicle at the moment of loss.\n\nThis is the structured counterpart of the free-text hint that the section\n4.1 case turns on. It is deliberately a *declared* value, not a derived one:\nthe agent must still reconcile it against the description and against the\npolicy's limitations-as-to-use clause.",
+      "enum": [
+        "private_social_domestic",
+        "commuting_to_work",
+        "commercial_goods_carriage",
+        "commercial_passenger_hire",
+        "food_or_parcel_delivery",
+        "ride_hailing",
+        "driving_tuition",
+        "motor_trade",
+        "racing_or_speed_testing",
+        "not_stated"
+      ],
+      "title": "VehicleUse",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Contract `fnol.v1` -- the only shape the service will accept (F1, D1).",
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "claim_reference": {
+      "description": "Caller-supplied idempotency key. Two submissions with the same reference and the same body return the same run.",
+      "maxLength": 48,
+      "minLength": 6,
+      "title": "Claim Reference",
+      "type": "string"
+    },
+    "policy_number": {
+      "maxLength": 40,
+      "minLength": 6,
+      "title": "Policy Number",
+      "type": "string"
+    },
+    "insurer_code": {
+      "maxLength": 24,
+      "minLength": 2,
+      "title": "Insurer Code",
+      "type": "string"
+    },
+    "product_code": {
+      "maxLength": 32,
+      "minLength": 2,
+      "title": "Product Code",
+      "type": "string"
+    },
+    "policy_start_date": {
+      "format": "date",
+      "title": "Policy Start Date",
+      "type": "string"
+    },
+    "policy_end_date": {
+      "format": "date",
+      "title": "Policy End Date",
+      "type": "string"
+    },
+    "date_of_loss": {
+      "format": "date-time",
+      "title": "Date Of Loss",
+      "type": "string"
+    },
+    "reported_at": {
+      "format": "date-time",
+      "title": "Reported At",
+      "type": "string"
+    },
+    "channel": {
+      "$ref": "#/$defs/Channel"
+    },
+    "reporter_phone": {
+      "maxLength": 16,
+      "minLength": 10,
+      "title": "Reporter Phone",
+      "type": "string"
+    },
+    "reporter_email": {
+      "anyOf": [
+        {
+          "format": "email",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reporter Email"
+    },
+    "vehicle": {
+      "$ref": "#/$defs/VehicleDetails"
+    },
+    "driver": {
+      "$ref": "#/$defs/DriverDetails"
+    },
+    "incident": {
+      "$ref": "#/$defs/IncidentDetails"
+    }
+  },
+  "required": [
+    "claim_reference",
+    "policy_number",
+    "insurer_code",
+    "product_code",
+    "policy_start_date",
+    "policy_end_date",
+    "date_of_loss",
+    "reported_at",
+    "channel",
+    "reporter_phone",
+    "vehicle",
+    "driver",
+    "incident"
+  ],
+  "title": "FNOLRequest",
+  "type": "object",
+  "$id": "https://claim-triage.local/contracts/fnol.v1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

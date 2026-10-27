@@ -1,0 +1,32 @@
+# Normalise line endings in the repository to LF.
+#
+# This matters for more than tidiness: the repository was authored on Windows,
+# and a shell script committed with CRLF fails on Linux with the famously
+# unhelpful `\r: command not found`. The same applies to anything copied into a
+# Linux container by the Dockerfile. Forcing LF on text keeps `scripts/*.sh`,
+# the Makefile and the entrypoints working wherever the repo is cloned.
+
+* text=auto eol=lf
+
+*.sh      text eol=lf
+*.py      text eol=lf
+*.js      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.html    text eol=lf
+*.conf    text eol=lf
+*.env     text eol=lf
+*.txt     text eol=lf
+*.ini     text eol=lf
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+.env.example text eol=lf
+
+# Binary -- never touch, never diff as text.
+*.pptx    binary
+*.pdf     binary
+*.png     binary
+*.jpg     binary
+*.npy     binary

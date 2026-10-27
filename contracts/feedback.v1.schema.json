@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "CoveragePosition": {
+      "enum": [
+        "likely_covered",
+        "likely_not_covered",
+        "partially_covered",
+        "undetermined"
+      ],
+      "title": "CoveragePosition",
+      "type": "string"
+    },
+    "FeedbackVerdict": {
+      "enum": [
+        "satisfactory",
+        "unsatisfactory"
+      ],
+      "title": "FeedbackVerdict",
+      "type": "string"
+    },
+    "RoutingQueue": {
+      "enum": [
+        "fast_track",
+        "surveyor_assignment",
+        "investigation",
+        "human_escalation"
+      ],
+      "title": "RoutingQueue",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Contract `feedback.v1` (L6).",
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 64,
+      "minLength": 4,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "verdict": {
+      "$ref": "#/$defs/FeedbackVerdict"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Reason",
+      "type": "string"
+    },
+    "reviewer": {
+      "default": "anonymous",
+      "maxLength": 80,
+      "title": "Reviewer",
+      "type": "string"
+    },
+    "corrected_queue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RoutingQueue"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "corrected_position": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoveragePosition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "run_id",
+    "verdict",
+    "reason"
+  ],
+  "title": "FeedbackRequest",
+  "type": "object",
+  "$id": "https://claim-triage.local/contracts/feedback.v1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

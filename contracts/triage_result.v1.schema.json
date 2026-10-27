@@ -1,0 +1,700 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "description": "A clause-level citation. `quote` must be a verbatim span of `clause_id`.",
+      "properties": {
+        "clause_id": {
+          "title": "Clause Id",
+          "type": "string"
+        },
+        "document_id": {
+          "title": "Document Id",
+          "type": "string"
+        },
+        "document_title": {
+          "title": "Document Title",
+          "type": "string"
+        },
+        "section_path": {
+          "title": "Section Path",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        },
+        "relevance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Relevance",
+          "type": "number"
+        },
+        "role": {
+          "enum": [
+            "grant",
+            "restriction",
+            "exclusion",
+            "condition",
+            "procedure",
+            "definition"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "resolves": {
+          "default": true,
+          "description": "True when the quote was found verbatim in the retrieved chunk.",
+          "title": "Resolves",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "clause_id",
+        "document_id",
+        "document_title",
+        "section_path",
+        "quote",
+        "relevance",
+        "role"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "ClaimType": {
+      "enum": [
+        "own_damage",
+        "third_party",
+        "theft",
+        "total_loss",
+        "undetermined"
+      ],
+      "title": "ClaimType",
+      "type": "string"
+    },
+    "Classification": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_type": {
+          "$ref": "#/$defs/ClaimType"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "secondary_types": {
+          "items": {
+            "$ref": "#/$defs/ClaimType"
+          },
+          "title": "Secondary Types",
+          "type": "array"
+        },
+        "entities": {
+          "title": "Entities",
+          "type": "object"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_type",
+        "confidence"
+      ],
+      "title": "Classification",
+      "type": "object"
+    },
+    "CostBreakdown": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt_tokens": {
+          "default": 0,
+          "title": "Prompt Tokens",
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "default": 0,
+          "title": "Completion Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "default": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        },
+        "cost_usd": {
+          "default": 0.0,
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "per_step": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Per Step",
+          "type": "object"
+        },
+        "largest_driver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Largest Driver"
+        }
+      },
+      "title": "CostBreakdown",
+      "type": "object"
+    },
+    "CoverageDetermination": {
+      "additionalProperties": false,
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/CoveragePosition"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "reasoning": {
+          "title": "Reasoning",
+          "type": "string"
+        },
+        "governing_clauses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Governing Clauses",
+          "type": "array"
+        },
+        "modifying_clauses": {
+          "description": "Restrictions or exclusions that qualify the governing clauses.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Modifying Clauses",
+          "type": "array"
+        },
+        "open_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Open Questions",
+          "type": "array"
+        },
+        "confidence": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "position",
+        "summary",
+        "reasoning"
+      ],
+      "title": "CoverageDetermination",
+      "type": "object"
+    },
+    "CoveragePosition": {
+      "enum": [
+        "likely_covered",
+        "likely_not_covered",
+        "partially_covered",
+        "undetermined"
+      ],
+      "title": "CoveragePosition",
+      "type": "string"
+    },
+    "EscalationNotice": {
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EscalationReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "explanation": {
+          "default": "",
+          "title": "Explanation",
+          "type": "string"
+        },
+        "assigned_to": {
+          "default": "senior_claims_handler",
+          "title": "Assigned To",
+          "type": "string"
+        }
+      },
+      "title": "EscalationNotice",
+      "type": "object"
+    },
+    "EscalationReason": {
+      "enum": [
+        "weak_retrieval",
+        "conflicting_clauses",
+        "outside_corpus",
+        "verification_failed",
+        "loop_budget_exhausted",
+        "provider_unavailable",
+        "guardrail_block",
+        "policy_requires_human"
+      ],
+      "title": "EscalationReason",
+      "type": "string"
+    },
+    "RoutingDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "queue": {
+          "$ref": "#/$defs/RoutingQueue"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "priority": {
+          "default": "normal",
+          "enum": [
+            "low",
+            "normal",
+            "high",
+            "urgent"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "target_first_touch_hours": {
+          "default": 24,
+          "maximum": 720,
+          "minimum": 1,
+          "title": "Target First Touch Hours",
+          "type": "integer"
+        },
+        "triggered_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Triggered Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "queue",
+        "reason"
+      ],
+      "title": "RoutingDecision",
+      "type": "object"
+    },
+    "RoutingQueue": {
+      "enum": [
+        "fast_track",
+        "surveyor_assignment",
+        "investigation",
+        "human_escalation"
+      ],
+      "title": "RoutingQueue",
+      "type": "string"
+    },
+    "RunStatus": {
+      "enum": [
+        "queued",
+        "running",
+        "completed",
+        "escalated",
+        "failed",
+        "rejected"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "StepRecord": {
+      "additionalProperties": false,
+      "description": "One row of the reconstructible run trace (D5).",
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "step": {
+          "title": "Step",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "duration_ms": {
+          "title": "Duration Ms",
+          "type": "number"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "prompt_tokens": {
+          "default": 0,
+          "title": "Prompt Tokens",
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "default": 0,
+          "title": "Completion Tokens",
+          "type": "integer"
+        },
+        "cost_usd": {
+          "default": 0.0,
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool"
+        },
+        "tool_query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Query"
+        },
+        "retrieved_clause_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Retrieved Clause Ids",
+          "type": "array"
+        },
+        "top_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Top Score"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "object"
+        }
+      },
+      "required": [
+        "index",
+        "agent",
+        "step",
+        "started_at",
+        "duration_ms",
+        "outcome"
+      ],
+      "title": "StepRecord",
+      "type": "object"
+    },
+    "VerificationReport": {
+      "additionalProperties": false,
+      "description": "A3 -- the answer is checked against the retrieved text before it leaves.",
+      "properties": {
+        "verdict": {
+          "enum": [
+            "verified",
+            "unsupported",
+            "not_run"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "support_score": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Support Score",
+          "type": "number"
+        },
+        "citations_checked": {
+          "default": 0,
+          "title": "Citations Checked",
+          "type": "integer"
+        },
+        "citations_resolved": {
+          "default": 0,
+          "title": "Citations Resolved",
+          "type": "integer"
+        },
+        "unsupported_statements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Statements",
+          "type": "array"
+        },
+        "attempts": {
+          "default": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "verdict"
+      ],
+      "title": "VerificationReport",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Contract `triage_result.v1` -- what the caller eventually receives.",
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "claim_reference": {
+      "title": "Claim Reference",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/RunStatus"
+    },
+    "submitted_at": {
+      "format": "date-time",
+      "title": "Submitted At",
+      "type": "string"
+    },
+    "completed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completed At"
+    },
+    "duration_seconds": {
+      "default": 0.0,
+      "title": "Duration Seconds",
+      "type": "number"
+    },
+    "classification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Classification"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoverageDetermination"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "routing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RoutingDecision"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "verification": {
+      "$ref": "#/$defs/VerificationReport"
+    },
+    "escalation": {
+      "$ref": "#/$defs/EscalationNotice"
+    },
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/StepRecord"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "tool_calls": {
+      "default": 0,
+      "title": "Tool Calls",
+      "type": "integer"
+    },
+    "prompt_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Prompt Versions",
+      "type": "object"
+    },
+    "cost": {
+      "$ref": "#/$defs/CostBreakdown"
+    },
+    "index_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Index Version"
+    },
+    "trace_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trace Id"
+    },
+    "degraded": {
+      "default": false,
+      "title": "Degraded",
+      "type": "boolean"
+    },
+    "degradation_path": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Degradation Path",
+      "type": "array"
+    },
+    "guardrail_events": {
+      "items": {
+        "type": "object"
+      },
+      "title": "Guardrail Events",
+      "type": "array"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "advisory_notice": {
+      "default": "Advisory only. This service does not approve, reject or value a claim. A human claims handler makes the decision.",
+      "title": "Advisory Notice",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "correlation_id",
+    "claim_reference",
+    "status",
+    "submitted_at"
+  ],
+  "title": "TriageResult",
+  "type": "object",
+  "$id": "https://claim-triage.local/contracts/triage_result.v1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

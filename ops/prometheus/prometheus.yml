@@ -1,0 +1,56 @@
+# Prometheus scrapes every service in the system (D5).
+#
+# The worker is scraped through the compose DNS name with `dns_sd_configs`
+# rather than a static target, because `--scale worker=3` creates three
+# containers behind one name. A static target would scrape whichever replica
+# the DNS round-robin happened to return and the per-agent metrics would be a
+# third of the truth -- which is exactly the number the A7 scaling report
+# depends on.
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 15s
+  external_labels:
+    system: claim-triage
+
+rule_files:
+  - /etc/prometheus/rules.yml
+
+scrape_configs:
+  - job_name: api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]
+        labels:
+          role: api
+
+  - job_name: worker
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names: ["tasks.worker", "worker"]
+        type: A
+        port: 9100
+        refresh_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: role
+        replacement: worker
+
+  - job_name: llm-stub
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["llm-stub:9009"]
+        labels:
+          role: stub
+
+  - job_name: cadvisor
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels:
+          role: infra
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

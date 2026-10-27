@@ -1,0 +1,401 @@
+# =============================================================================
+#  claim-triage -- the whole system (D3)
+#
+#      cp .env.example .env     # fill in the provider section
+#      docker compose up --build
+#      docker compose run --rm tools ingest --fetch      # build the index
+#
+#  Ten long-running services, plus a one-shot `tools` container and a `locust`
+#  container behind compose profiles. Every long-running service has a
+#  health check, every dependency is declared with a condition, and nothing
+#  runs outside a container.
+#
+#  Where the deployment boundaries are, and why
+#  --------------------------------------------
+#  api / worker      Split on *scaling* and on *failure isolation*. The API is
+#                    a validating front door: microseconds per request, must
+#                    stay up, must never be blocked by a slow model call. The
+#                    worker is seconds-to-a-minute per unit of work and is the
+#                    only thing that talks to a model. Scaling them together
+#                    would mean adding HTTP capacity we do not need in order to
+#                    get agent capacity we do, and a worker wedged on a
+#                    provider timeout would take submissions down with it.
+#
+#  worker / chroma   Split on *resource profile* and *release cadence*. The
+#                    index is memory-resident and shared; the workers are
+#                    stateless and replaceable. `--scale worker=3` must give
+#                    three workers one index, not three copies of it, and
+#                    re-indexing the corpus must not require a worker deploy.
+#
+#  llm-stub          Split because it stands in for a third party. It is
+#                    reached over HTTP through the same adapter as the real
+#                    provider, so the load test exercises the real code path
+#                    (D6). It is in the default profile because the
+#                    demonstration needs it for the circuit-breaker item.
+#
+#  redis             Split because it is the only stateful thing in the request
+#                    path and the one component whose loss has to be survivable
+#                    and visible.
+#
+#  prometheus /      Split because observability must outlive the thing it is
+#  grafana / jaeger  observing. If the worker crash-loops, the dashboard that
+#                    shows it crash-looping has to still be up.
+# =============================================================================
+
+name: claim-triage
+
+x-app-env: &app-env
+  LLM_PROVIDER: ${LLM_PROVIDER:-openai_compat}
+  LLM_BASE_URL: ${LLM_BASE_URL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+  LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
+  LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-1200}
+  LLM_PRICE_PROMPT_PER_MTOK: ${LLM_PRICE_PROMPT_PER_MTOK:-0.0}
+  LLM_PRICE_COMPLETION_PER_MTOK: ${LLM_PRICE_COMPLETION_PER_MTOK:-0.0}
+  LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+  LLM_MAX_ATTEMPTS: ${LLM_MAX_ATTEMPTS:-3}
+  LLM_BACKOFF_BASE_SECONDS: ${LLM_BACKOFF_BASE_SECONDS:-0.5}
+  LLM_BACKOFF_MAX_SECONDS: ${LLM_BACKOFF_MAX_SECONDS:-8}
+  CIRCUIT_FAIL_THRESHOLD: ${CIRCUIT_FAIL_THRESHOLD:-5}
+  CIRCUIT_RESET_SECONDS: ${CIRCUIT_RESET_SECONDS:-30}
+  TOOL_TIMEOUT_SECONDS: ${TOOL_TIMEOUT_SECONDS:-10}
+  AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-14}
+  AGENT_MAX_TOOL_CALLS: ${AGENT_MAX_TOOL_CALLS:-12}
+  AGENT_WALL_CLOCK_SECONDS: ${AGENT_WALL_CLOCK_SECONDS:-120}
+  RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-6}
+  VERIFIER_MIN_SUPPORT: ${VERIFIER_MIN_SUPPORT:-0.60}
+  ESCALATION_MIN_RETRIEVAL_SCORE: ${ESCALATION_MIN_RETRIEVAL_SCORE:-0.25}
+  EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-sentence_transformers}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+  EMBEDDING_DIM: ${EMBEDDING_DIM:-384}
+  CHUNK_TOKENS: ${CHUNK_TOKENS:-320}
+  CHUNK_OVERLAP_TOKENS: ${CHUNK_OVERLAP_TOKENS:-64}
+  VECTOR_BACKEND: ${VECTOR_BACKEND:-chroma_http}
+  CHROMA_HOST: chroma
+  CHROMA_PORT: 8000
+  CHROMA_COLLECTION: ${CHROMA_COLLECTION:-policy_clauses}
+  INDEX_DIR: /data/index
+  REDIS_URL: redis://redis:6379/0
+  QUEUE_NAME: ${QUEUE_NAME:-triage:queue}
+  EXECUTION_MODE: queue
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+  RUN_TTL_SECONDS: ${RUN_TTL_SECONDS:-86400}
+  CACHE_EMBEDDINGS: ${CACHE_EMBEDDINGS:-true}
+  CACHE_RETRIEVALS: ${CACHE_RETRIEVALS:-true}
+  CACHE_RUNS: ${CACHE_RUNS:-true}
+  CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-3600}
+  RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+  RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-30}
+  RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+  GUARDRAILS_ENABLED: ${GUARDRAILS_ENABLED:-true}
+  TOXICITY_THRESHOLD: ${TOXICITY_THRESHOLD:-0.60}
+  INJECTION_THRESHOLD: ${INJECTION_THRESHOLD:-0.50}
+  PROMPT_SET: ${PROMPT_SET:-v2}
+  PROMPT_DIR: /app/prompts
+  CORPUS_MANIFEST: /app/corpus/sources.yaml
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+  OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-claim-triage}
+  TRACING_ENABLED: ${TRACING_ENABLED:-true}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_FORMAT: ${LOG_FORMAT:-json}
+  SLO_P95_SECONDS: ${SLO_P95_SECONDS:-45}
+  STUB_BASE_URL: http://llm-stub:9009
+  STUB_LATENCY_MS: ${STUB_LATENCY_MS:-350}
+  STUB_LATENCY_JITTER_MS: ${STUB_LATENCY_JITTER_MS:-150}
+  STUB_FAILURE_RATE: ${STUB_FAILURE_RATE:-0.0}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+services:
+
+  # ---------------------------------------------------------------- state
+  redis:
+    image: redis:7.4-alpine
+    command: >-
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    logging: *logging
+    restart: unless-stopped
+
+  chroma:
+    image: chromadb/chroma:0.5.23
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+      PERSIST_DIRECTORY: /chroma/chroma
+    volumes:
+      - chroma-data:/chroma/chroma
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging: *logging
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- application
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      <<: *app-env
+      SERVICE_ROLE: api
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    volumes:
+      - index-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    logging: *logging
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: runtime-ml
+    command: ["python", "-m", "claimtriage.worker.executor"]
+    environment:
+      <<: *app-env
+      SERVICE_ROLE: worker
+      WORKER_ADMIN_PORT: 9100
+    depends_on:
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    volumes:
+      - index-data:/data
+    # No host port: `--scale worker=3` cannot bind three replicas to one port.
+    # Prometheus reaches every replica through the compose DNS name instead.
+    expose:
+      - "9100"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9100/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    logging: *logging
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  llm-stub:
+    build:
+      context: .
+      target: runtime
+    command:
+      - uvicorn
+      - claimtriage.stub.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9009"
+    environment:
+      <<: *app-env
+      SERVICE_ROLE: stub
+      TRACING_ENABLED: "false"
+    ports:
+      - "${STUB_PORT:-9009}:9009"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9009/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    logging: *logging
+    restart: unless-stopped
+
+  web:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./ops/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- observability
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+    expose:
+      - "4318"
+      - "4317"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:16686/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    logging: *logging
+    restart: unless-stopped
+
+  # Per-container CPU, memory and network. D5 asks for resource utilisation
+  # per container on the dashboard, and nothing inside the application can
+  # report that about its neighbours -- it has to come from the container
+  # runtime. On Docker Desktop cAdvisor reports CPU and memory reliably;
+  # filesystem metrics are partial, which is noted on the dashboard panel.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    privileged: true
+    command:
+      - --housekeeping_interval=10s
+      - --docker_only=true
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *logging
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROM_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    logging: *logging
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging: *logging
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- one-shot
+  tools:
+    build:
+      context: .
+      target: runtime-ml
+    entrypoint: ["python", "-m", "claimtriage.cli"]
+    command: ["--help"]
+    environment:
+      <<: *app-env
+      SERVICE_ROLE: cli
+      TRACING_ENABLED: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    volumes:
+      - index-data:/data
+      - ./corpus/raw:/app/corpus/raw
+      - ./eval/reports:/app/eval/reports
+    profiles: ["tools"]
+    logging: *logging
+
+  locust:
+    build:
+      context: .
+      target: runtime
+    command:
+      - sh
+      - -c
+      - "pip install --no-cache-dir locust==2.32.5 && locust -f /app/loadtest/locustfile.py --host http://api:8080"
+    environment:
+      <<: *app-env
+      SERVICE_ROLE: locust
+    volumes:
+      - ./loadtest:/app/loadtest
+    ports:
+      - "${LOCUST_PORT:-8089}:8089"
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["loadtest"]
+    logging: *logging
+
+volumes:
+  redis-data:
+  chroma-data:
+  index-data:
+  prometheus-data:
+  grafana-data:

@@ -1,0 +1,39 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+scratch/
+data/
+*.egg-info/
+.DS_Store
+
+# The corpus is the insurer's published documents, fetched by `make corpus`.
+# Not committed: it keeps the repository small and makes the provenance of every
+# indexed byte explicit and re-checkable against corpus/sources.yaml.
+corpus/raw/*
+!corpus/raw/.gitkeep
+
+# Reports ARE committed. They are the evidence behind REPORT.md,
+# docs/evaluation.md, docs/load-test.md and docs/cost.md -- a report that cites
+# numbers nobody else can see is not a report. New ad-hoc runs are ignored; the
+# ones referenced in the documentation are kept explicitly.
+eval/reports/*
+!eval/reports/.gitkeep
+!eval/reports/smoke_stub.json
+!eval/reports/prompts_v1.json
+!eval/reports/prompts_v2.json
+!eval/reports/prompt_comparison.json
+!eval/reports/topk_6.json
+!eval/reports/topk_12.json
+!eval/reports/topk_comparison.json
+
+loadtest/reports/*
+!loadtest/reports/.gitkeep
+!loadtest/reports/cache_effect.json
+!loadtest/reports/local_u*_stats.csv
+!loadtest/reports/cache_o*_stats.csv
+
+# deck build artefacts
+docs/presentation/node_modules/
+docs/presentation/package-lock.json

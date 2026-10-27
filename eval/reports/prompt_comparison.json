@@ -1,0 +1,45 @@
+{
+  "before_label": "prompt set v1",
+  "after_label": "prompt set v2",
+  "metrics": {
+    "groundedness": {
+      "before": 0.3421,
+      "after": 0.3421,
+      "delta": 0.0,
+      "relative_pct": 0.0,
+      "improved": false
+    },
+    "context_relevance": {
+      "before": 0.0057,
+      "after": 0.0057,
+      "delta": 0.0,
+      "relative_pct": 0.0,
+      "improved": false
+    },
+    "faithfulness": {
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0,
+      "relative_pct": 0.0,
+      "improved": false
+    },
+    "hallucination_rate": {
+      "before": 0.0,
+      "after": 0.0,
+      "delta": 0.0,
+      "relative_pct": null,
+      "improved": false
+    }
+  },
+  "pass_rate": {
+    "before": 0.88,
+    "after": 0.88,
+    "delta": 0.0
+  },
+  "cost": {
+    "before_usd": 0.0,
+    "after_usd": 0.0
+  },
+  "fixed": [],
+  "regressions": []
+}

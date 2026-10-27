@@ -1,0 +1,90 @@
+# Recording and alerting rules.
+#
+# The recording rules exist so the dashboard and the SLO report read the same
+# expression. A p95 computed one way on a panel and another way in a report is
+# how two people end up disagreeing about whether the target was met.
+
+groups:
+  - name: claim-triage-slo
+    interval: 15s
+    rules:
+      # -- the D6 SLO metric: submission to final result -------------------
+      - record: triage:run_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(triage_run_duration_seconds_bucket[5m])) by (le))
+      - record: triage:run_duration_seconds:p50
+        expr: histogram_quantile(0.50, sum(rate(triage_run_duration_seconds_bucket[5m])) by (le))
+      - record: triage:runs:rps
+        expr: sum(rate(triage_runs_finished_total[1m]))
+      - record: triage:runs:error_ratio
+        expr: |
+          sum(rate(triage_runs_finished_total{status=~"failed|timeout"}[5m]))
+          / clamp_min(sum(rate(triage_runs_finished_total[5m])), 0.0001)
+      - record: triage:runs:escalation_ratio
+        expr: |
+          sum(rate(triage_runs_finished_total{status="escalated"}[5m]))
+          / clamp_min(sum(rate(triage_runs_finished_total[5m])), 0.0001)
+      - record: triage:agent:task_success_ratio
+        expr: |
+          sum by (agent) (rate(triage_agent_task_total{result="success"}[5m]))
+          / clamp_min(sum by (agent) (rate(triage_agent_task_total[5m])), 0.0001)
+      - record: triage:cache:hit_ratio
+        expr: |
+          sum by (layer) (rate(triage_cache_events_total{event="hit"}[5m]))
+          / clamp_min(sum by (layer) (rate(triage_cache_events_total[5m])), 0.0001)
+      - record: triage:cost_per_100_runs_usd
+        expr: |
+          100 * sum(rate(triage_llm_cost_usd_total[30m]))
+          / clamp_min(sum(rate(triage_runs_finished_total[30m])), 0.0001)
+
+  - name: claim-triage-alerts
+    rules:
+      - alert: SLOBreach
+        expr: triage:run_duration_seconds:p95 > 45
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 run latency is above the 45s objective"
+          runbook: RUNBOOK.md#failure-mode-1--runs-queue-up-and-p95-breaches-the-slo
+
+      - alert: QueueBacklog
+        expr: triage_queue_depth > 50
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "more than 50 jobs waiting; workers are not keeping up"
+          runbook: RUNBOOK.md#failure-mode-1--runs-queue-up-and-p95-breaches-the-slo
+
+      - alert: ProviderCircuitOpen
+        expr: triage_circuit_state > 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "the model provider circuit breaker is open; runs are degrading"
+          runbook: RUNBOOK.md#failure-mode-2--the-model-provider-is-unavailable
+
+      - alert: CorpusIndexStale
+        expr: triage_index_age_seconds > 604800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "the policy index is more than seven days old"
+
+      - alert: CorpusIndexEmpty
+        expr: triage_index_chunks == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "the policy index is empty; every run will escalate"
+
+      - alert: EscalationRateHigh
+        expr: triage:runs:escalation_ratio > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "over half of runs are escalating; check retrieval and the verifier"

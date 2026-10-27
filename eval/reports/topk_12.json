@@ -1,0 +1,1741 @@
+{
+  "label": "RETRIEVAL_TOP_K=12",
+  "started_at": "2026-10-14T11:00:16.108375+00:00",
+  "duration_seconds": 41.96,
+  "dataset": "eval/dataset.yaml",
+  "dataset_version": "1.0",
+  "scenarios": 25,
+  "configuration": {
+    "prompt_set": "v2",
+    "llm_provider": "stub",
+    "llm_model": null,
+    "embedding_backend": "hash",
+    "vector_backend": "local",
+    "retrieval_top_k": 12,
+    "verifier_min_support": 0.6,
+    "agent_max_tool_calls": 12,
+    "judge_enabled": false
+  },
+  "valid_for_reporting": false,
+  "stub_override_used": true,
+  "summary": {
+    "passed": 22,
+    "failed": 3,
+    "pass_rate": 0.88,
+    "by_category": {
+      "restricted_use": {
+        "passed": 5,
+        "failed": 0
+      },
+      "restricted_use_control": {
+        "passed": 1,
+        "failed": 0
+      },
+      "ordinary": {
+        "passed": 3,
+        "failed": 0
+      },
+      "third_party": {
+        "passed": 2,
+        "failed": 0
+      },
+      "theft": {
+        "passed": 1,
+        "failed": 0
+      },
+      "total_loss": {
+        "passed": 1,
+        "failed": 0
+      },
+      "driver_clause": {
+        "passed": 1,
+        "failed": 1
+      },
+      "conditions": {
+        "passed": 0,
+        "failed": 1
+      },
+      "procedure": {
+        "passed": 1,
+        "failed": 0
+      },
+      "out_of_corpus": {
+        "passed": 1,
+        "failed": 1
+      },
+      "guardrail": {
+        "passed": 2,
+        "failed": 0
+      },
+      "validation": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    "escalated": 0,
+    "rejected_at_boundary": 6,
+    "agent_runs": 19,
+    "mean_steps": 7.0,
+    "mean_tool_calls": 5.32,
+    "mean_duration_seconds": 2.187,
+    "total_tokens": 288961,
+    "total_cost_usd": 0.0
+  },
+  "metrics": {
+    "groundedness": 0.3421,
+    "context_relevance": 0.0059,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.0
+  },
+  "reference_case": {
+    "id": "S01_food_delivery_reference_case",
+    "passed": true,
+    "position": "likely_not_covered",
+    "queue": "investigation",
+    "citations": [
+      {
+        "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+        "section_path": "ADDITIONAL COVERS",
+        "page": 3,
+        "role": "restriction",
+        "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+      },
+      {
+        "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+        "section_path": "Chapter 2 - Exception, Condition & Deductible",
+        "page": 3,
+        "role": "grant",
+        "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+      },
+      {
+        "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+        "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+        "page": 7,
+        "role": "grant",
+        "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+      }
+    ],
+    "failures": []
+  },
+  "records": [
+    {
+      "id": "S01_food_delivery_reference_case",
+      "title": "Own damage while making a food delivery run in a private car",
+      "category": "restricted_use",
+      "is_reference_case": true,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_not_covered",
+          "partially_covered",
+          "undetermined"
+        ],
+        "queue": "investigation",
+        "must_cite_section_any": [
+          "limitations as to use",
+          "general exception"
+        ],
+        "must_mention_any": [
+          "hire or reward",
+          "limitations as to use",
+          "permitted",
+          "purpose"
+        ],
+        "min_citations": 1
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_not_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "restriction",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+          "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+          "page": 7,
+          "role": "grant",
+          "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+        }
+      ],
+      "warnings": [
+        "commercial_use_flagged"
+      ],
+      "steps": 7,
+      "tool_calls": 6,
+      "tokens": 15533,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.4651,
+      "scores": {
+        "groundedness": 0.0,
+        "context_relevance": 0.0732,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "The vehicle appears to have been in use for a purpose the policy does not permit at the time of the loss.",
+            "Stub reasoner: the own damage grant is qualified by the general exception for use otherwise than in accordance with the limitations as to use, and the declared "
+          ],
+          "passages_scored": 41,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 41,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S02_commuting_is_permitted",
+      "title": "Own damage while commuting to work -- a permitted use",
+      "category": "restricted_use_control",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_covered",
+          "partially_covered"
+        ],
+        "queue": [
+          "fast_track",
+          "surveyor_assignment"
+        ],
+        "min_citations": 1
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "fast_track",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15043,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.3344,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S03_minor_own_damage_fast_track",
+      "title": "Minor own damage, drivable, no third party",
+      "category": "ordinary",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_covered"
+        ],
+        "queue": "fast_track",
+        "min_citations": 1
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "fast_track",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15082,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.129,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0192,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S04_windscreen_only",
+      "title": "Windscreen damage only, very low value",
+      "category": "ordinary",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_covered"
+        ],
+        "queue": "fast_track"
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "fast_track",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15016,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1711,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S05_third_party_property_damage",
+      "title": "Collision damaging a third party's property",
+      "category": "third_party",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": [
+          "surveyor_assignment",
+          "investigation"
+        ],
+        "min_citations": 1
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "surveyor_assignment",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15045,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1678,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S06_third_party_bodily_injury",
+      "title": "Third party bodily injury, FIR registered",
+      "category": "third_party",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": [
+          "surveyor_assignment",
+          "investigation"
+        ],
+        "min_citations": 1
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "surveyor_assignment",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15138,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.2106,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S07_theft_with_fir",
+      "title": "Vehicle stolen, FIR registered",
+      "category": "theft",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": "investigation",
+        "must_mention_any": [
+          "theft",
+          "immediate notice",
+          "police"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [
+        "undrivable_but_trivial_estimate"
+      ],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15222,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1684,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S08_possible_total_loss",
+      "title": "Severe damage, estimate close to the insured declared value",
+      "category": "total_loss",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": [
+          "surveyor_assignment",
+          "investigation"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "surveyor_assignment",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [
+        "estimate_within_idv"
+      ],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15215,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1491,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S09_undrivable_moderate",
+      "title": "Vehicle undrivable, moderate estimate",
+      "category": "ordinary",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": [
+          "surveyor_assignment",
+          "investigation"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "surveyor_assignment",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15073,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.129,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S10_ride_hailing",
+      "title": "Accident while carrying a passenger for a ride-hailing app",
+      "category": "restricted_use",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_not_covered",
+          "partially_covered",
+          "undetermined"
+        ],
+        "queue": "investigation",
+        "must_mention_any": [
+          "hire or reward",
+          "limitations as to use",
+          "permitted",
+          "purpose"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_not_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "restriction",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+          "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+          "page": 7,
+          "role": "grant",
+          "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+        }
+      ],
+      "warnings": [
+        "commercial_use_flagged"
+      ],
+      "steps": 7,
+      "tool_calls": 6,
+      "tokens": 15420,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.2328,
+      "scores": {
+        "groundedness": 0.0,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "The vehicle appears to have been in use for a purpose the policy does not permit at the time of the loss.",
+            "Stub reasoner: the own damage grant is qualified by the general exception for use otherwise than in accordance with the limitations as to use, and the declared "
+          ],
+          "passages_scored": 41,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 41,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S11_carriage_of_goods",
+      "title": "Accident while carrying trade goods in a private car",
+      "category": "restricted_use",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_not_covered",
+          "partially_covered",
+          "undetermined"
+        ],
+        "queue": "investigation"
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_not_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "restriction",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+          "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+          "page": 7,
+          "role": "grant",
+          "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+        }
+      ],
+      "warnings": [
+        "commercial_use_flagged"
+      ],
+      "steps": 7,
+      "tool_calls": 6,
+      "tokens": 15436,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1768,
+      "scores": {
+        "groundedness": 0.0,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "The vehicle appears to have been in use for a purpose the policy does not permit at the time of the loss.",
+            "Stub reasoner: the own damage grant is qualified by the general exception for use otherwise than in accordance with the limitations as to use, and the declared "
+          ],
+          "passages_scored": 41,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 41,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S12_speed_testing",
+      "title": "Damage during a timed track session",
+      "category": "restricted_use",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_not_covered",
+          "partially_covered",
+          "undetermined"
+        ],
+        "queue": "investigation"
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_not_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "restriction",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+          "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+          "page": 7,
+          "role": "grant",
+          "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+        }
+      ],
+      "warnings": [
+        "commercial_use_flagged"
+      ],
+      "steps": 7,
+      "tool_calls": 6,
+      "tokens": 15447,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1449,
+      "scores": {
+        "groundedness": 0.0,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "The vehicle appears to have been in use for a purpose the policy does not permit at the time of the loss.",
+            "Stub reasoner: the own damage grant is qualified by the general exception for use otherwise than in accordance with the limitations as to use, and the declared "
+          ],
+          "passages_scored": 41,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 41,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S13_driving_tuition",
+      "title": "Damage while giving paid driving lessons",
+      "category": "restricted_use",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": "investigation"
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_not_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "restriction",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+          "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+          "page": 7,
+          "role": "grant",
+          "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+        }
+      ],
+      "warnings": [
+        "commercial_use_flagged"
+      ],
+      "steps": 7,
+      "tool_calls": 6,
+      "tokens": 15405,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.3005,
+      "scores": {
+        "groundedness": 0.0,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "The vehicle appears to have been in use for a purpose the policy does not permit at the time of the loss.",
+            "Stub reasoner: the own damage grant is qualified by the general exception for use otherwise than in accordance with the limitations as to use, and the declared "
+          ],
+          "passages_scored": 41,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 41,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S14_driver_without_valid_licence",
+      "title": "Driver did not hold a valid licence on the date of loss",
+      "category": "driver_clause",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "position": [
+          "likely_not_covered",
+          "partially_covered",
+          "undetermined"
+        ],
+        "queue": "investigation",
+        "must_mention_any": [
+          "licence",
+          "license",
+          "driver's clause",
+          "drivers clause"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15084,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1659,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0192,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": false,
+      "failures": [
+        "position likely_covered not in expected ['likely_not_covered', 'partially_covered', 'undetermined']"
+      ]
+    },
+    {
+      "id": "S15_learner_licence_only",
+      "title": "Driver held a learner licence only",
+      "category": "driver_clause",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": "investigation"
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15084,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1033,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S16_late_notification",
+      "title": "Loss reported six weeks after it happened",
+      "category": "conditions",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "warnings_include": [
+          "late_notification"
+        ],
+        "must_mention_any": [
+          "notice",
+          "immediately",
+          "condition",
+          "delay"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "fast_track",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [
+        "late_notification"
+      ],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15125,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1594,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": false,
+      "failures": [
+        "the determination mentioned none of ['notice', 'immediately', 'condition', 'delay']"
+      ]
+    },
+    {
+      "id": "S17_claim_procedure_question",
+      "title": "Routing must state what the chosen queue requires",
+      "category": "procedure",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "completed",
+        "queue": "fast_track"
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "fast_track",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15007,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.0688,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S18_out_of_corpus_cyber",
+      "title": "A loss the private car wording does not address",
+      "category": "out_of_corpus",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": [
+          "escalated",
+          "completed"
+        ],
+        "position": [
+          "undetermined",
+          "likely_not_covered"
+        ],
+        "acceptable_escalation_reasons": [
+          "outside_corpus",
+          "weak_retrieval",
+          "verification_failed"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_covered",
+      "queue": "fast_track",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "grant",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible-3-condi::0038",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS",
+          "page": 3,
+          "role": "grant",
+          "quote": "This Policy and the Schedule shall be read together and any word or expression to which a specific"
+        }
+      ],
+      "warnings": [],
+      "steps": 7,
+      "tool_calls": 5,
+      "tokens": 15141,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.1818,
+      "scores": {
+        "groundedness": 0.5,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "Stub reasoner: the grant applies and no retrieved restriction or exclusion displaces it."
+          ],
+          "passages_scored": 52,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 52,
+      "passed": false,
+      "failures": [
+        "position likely_covered not in expected ['undetermined', 'likely_not_covered']"
+      ]
+    },
+    {
+      "id": "S19_out_of_corpus_other_product",
+      "title": "A question about a product line outside the indexed corpus",
+      "category": "out_of_corpus",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": [
+          "escalated",
+          "completed"
+        ],
+        "position": [
+          "undetermined",
+          "likely_not_covered"
+        ]
+      },
+      "actual_outcome": "completed",
+      "agent_run_started": true,
+      "position": "likely_not_covered",
+      "queue": "investigation",
+      "verification": "verified",
+      "support_score": 0.93,
+      "escalation_reason": null,
+      "citations": [
+        {
+          "clause_id": "il_private_car_claims_procedure::additional-covers::0006",
+          "section_path": "ADDITIONAL COVERS",
+          "page": 3,
+          "role": "restriction",
+          "quote": "Insured has an option to choose the number of EMI (Subject to min of 1 and Max 6)"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-2-exception-condition-deductible::0032",
+          "section_path": "Chapter 2 - Exception, Condition & Deductible",
+          "page": 3,
+          "role": "grant",
+          "quote": "1. GENERAL EXCEPTIONS (Applicable to all Sections of the Policy) The Company shall not be liable under this"
+        },
+        {
+          "clause_id": "il_private_car_package_wording::chapter-3-india-motor-tariff-endorsements-11-veh::0063",
+          "section_path": "CHAPTER 3- INDIA MOTOR TARIFF - ENDORSEMENTS > 11. VEHICLES LAID UP > II",
+          "page": 7,
+          "role": "grant",
+          "quote": "Subject otherwise to the terms exceptions conditions and limitations of the policy. 13. IMT. 13. USE OF VEHICLE"
+        }
+      ],
+      "warnings": [
+        "commercial_use_flagged"
+      ],
+      "steps": 7,
+      "tool_calls": 6,
+      "tokens": 15445,
+      "cost_usd": 0.0,
+      "degraded": false,
+      "prompt_versions": {
+        "intake_classification": "intake_classification@v2+b2c20418",
+        "query_formulation": "query_formulation@v2+5c0d968a",
+        "coverage_analysis": "coverage_analysis@v2+1fd579ef",
+        "verification": "verification@v2+a8141c0b",
+        "routing": "routing@v2+62f982ea"
+      },
+      "duration_seconds": 2.0884,
+      "scores": {
+        "groundedness": 0.0,
+        "context_relevance": 0.0,
+        "faithfulness": 1.0,
+        "hallucinated": false,
+        "detail": {
+          "statements_scored": 2,
+          "ungrounded_statements": [
+            "The vehicle appears to have been in use for a purpose the policy does not permit at the time of the loss.",
+            "Stub reasoner: the own damage grant is qualified by the general exception for use otherwise than in accordance with the limitations as to use, and the declared "
+          ],
+          "passages_scored": 41,
+          "citations_resolved": "3/3"
+        }
+      },
+      "passages_retrieved": 41,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S20_prompt_injection_in_description",
+      "title": "Prompt injection in the free-text description",
+      "category": "guardrail",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "rejected",
+        "rejection_stage": "guardrail",
+        "agent_run_started": false
+      },
+      "actual_outcome": "rejected",
+      "rejection_stage": "guardrail",
+      "rejection_rules": [
+        "guardrail:override_instructions",
+        "guardrail:role_reassignment",
+        "guardrail:determination_forcing"
+      ],
+      "agent_run_started": false,
+      "duration_seconds": 0.0006,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S21_threat_in_description",
+      "title": "Threat of violence in the free-text description",
+      "category": "guardrail",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "rejected",
+        "rejection_stage": "guardrail",
+        "agent_run_started": false
+      },
+      "actual_outcome": "rejected",
+      "rejection_stage": "guardrail",
+      "rejection_rules": [
+        "guardrail:threat_of_violence"
+      ],
+      "agent_run_started": false,
+      "duration_seconds": 0.0004,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S22_loss_outside_policy_period",
+      "title": "Date of loss falls outside the policy period",
+      "category": "validation",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "rejected",
+        "rejection_stage": "cross_field",
+        "rejection_rules": [
+          "loss_within_policy_period"
+        ],
+        "agent_run_started": false
+      },
+      "actual_outcome": "rejected",
+      "rejection_stage": "cross_field",
+      "rejection_rules": [
+        "loss_within_policy_period"
+      ],
+      "agent_run_started": false,
+      "duration_seconds": 0.0002,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S23_theft_without_fir",
+      "title": "Theft reported with no FIR number",
+      "category": "validation",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "rejected",
+        "rejection_stage": "cross_field",
+        "rejection_rules": [
+          "fir_required_for_police_report",
+          "fir_required_for_theft"
+        ],
+        "agent_run_started": false
+      },
+      "actual_outcome": "rejected",
+      "rejection_stage": "cross_field",
+      "rejection_rules": [
+        "fir_required_for_police_report",
+        "fir_required_for_theft"
+      ],
+      "agent_run_started": false,
+      "duration_seconds": 0.0001,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S24_malformed_registration",
+      "title": "Registration number that is not a valid Indian plate",
+      "category": "validation",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "rejected",
+        "rejection_stage": "schema",
+        "agent_run_started": false
+      },
+      "actual_outcome": "rejected",
+      "rejection_stage": "schema",
+      "rejection_rules": [
+        "value_error"
+      ],
+      "agent_run_started": false,
+      "duration_seconds": 0.0002,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "S25_implausible_estimate",
+      "title": "Repair estimate more than three times the insured declared value",
+      "category": "validation",
+      "is_reference_case": false,
+      "expected": {
+        "outcome": "rejected",
+        "rejection_stage": "cross_field",
+        "rejection_rules": [
+          "estimate_within_idv"
+        ],
+        "agent_run_started": false
+      },
+      "actual_outcome": "rejected",
+      "rejection_stage": "cross_field",
+      "rejection_rules": [
+        "estimate_within_idv"
+      ],
+      "agent_run_started": false,
+      "duration_seconds": 0.0001,
+      "passed": true,
+      "failures": []
+    }
+  ]
+}

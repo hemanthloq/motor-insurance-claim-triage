@@ -1,0 +1,373 @@
+{
+  "uid": "claim-triage",
+  "title": "Claim Triage — service, agents and cost",
+  "tags": ["claim-triage", "agentops"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "slo",
+        "label": "p95 objective (s)",
+        "type": "constant",
+        "query": "45",
+        "current": { "text": "45", "value": "45" },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Service level",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "p95 run latency (submission → final result)",
+      "description": "The D6 SLO metric. A complete run, not the submission call.",
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 35 },
+              { "color": "red", "value": 45 }
+            ]
+          }
+        }
+      },
+      "targets": [{ "expr": "triage:run_duration_seconds:p95", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "p50 run latency",
+      "gridPos": { "h": 5, "w": 4, "x": 5, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 2 } },
+      "targets": [{ "expr": "triage:run_duration_seconds:p50", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Throughput (runs/s)",
+      "gridPos": { "h": 5, "w": 4, "x": 9, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 3 } },
+      "targets": [{ "expr": "triage:runs:rps", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Error rate",
+      "description": "Runs that ended failed or timed out. Escalations are counted separately — declining to answer is correct behaviour, not an error.",
+      "gridPos": { "h": 5, "w": 4, "x": 13, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      },
+      "targets": [{ "expr": "triage:runs:error_ratio", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Availability (scrape up)",
+      "gridPos": { "h": 5, "w": 3, "x": 17, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 4 } },
+      "targets": [
+        { "expr": "avg_over_time(up{job=~\"api|worker|llm-stub\"}[$__range])", "refId": "A", "legendFormat": "{{job}}" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Queue depth",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 20 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      },
+      "targets": [{ "expr": "max(triage_queue_depth)", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Run latency percentiles vs objective",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 8 } } },
+      "targets": [
+        { "expr": "triage:run_duration_seconds:p50", "legendFormat": "p50", "refId": "A" },
+        { "expr": "triage:run_duration_seconds:p95", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(triage_run_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C" },
+        { "expr": "$slo", "legendFormat": "objective", "refId": "D" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Run outcomes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 25, "stacking": { "mode": "normal" } } } },
+      "targets": [
+        { "expr": "sum by (status) (rate(triage_runs_finished_total[2m]))", "legendFormat": "{{status}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Agents (A6)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Task success rate per agent",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [
+        { "expr": "triage:agent:task_success_ratio", "legendFormat": "{{agent}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-step p95 latency",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, agent, step) (rate(triage_agent_step_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{agent}} / {{step}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Steps and tool calls per run (mean)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "targets": [
+        {
+          "expr": "sum(rate(triage_run_steps_sum[5m])) / clamp_min(sum(rate(triage_run_steps_count[5m])), 0.0001)",
+          "legendFormat": "steps",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(triage_run_tool_calls_sum[5m])) / clamp_min(sum(rate(triage_run_tool_calls_count[5m])), 0.0001)",
+          "legendFormat": "tool calls",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool calls by tool and outcome",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 23 },
+      "targets": [
+        { "expr": "sum by (tool, outcome) (rate(triage_tool_calls_total[2m]))", "legendFormat": "{{tool}} {{outcome}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Verification outcomes and routing",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 23 },
+      "targets": [
+        { "expr": "sum by (outcome) (rate(triage_verification_total[2m]))", "legendFormat": "verify:{{outcome}}", "refId": "A" },
+        { "expr": "sum by (queue) (rate(triage_routing_total[2m]))", "legendFormat": "route:{{queue}}", "refId": "B" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container uptime",
+      "description": "Seconds since each process started, derived from the start-time gauge the services export.",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 23 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "expr": "time() - triage_service_start_timestamp_seconds", "legendFormat": "{{role}} {{instance}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Model provider and resilience (A5, L5)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 }
+    },
+    {
+      "type": "stat",
+      "title": "Circuit breaker",
+      "description": "0 closed, 1 half-open, 2 open.",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 31 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "closed", "color": "green" }, "1": { "text": "half-open", "color": "orange" }, "2": { "text": "OPEN", "color": "red" } } }
+          ]
+        }
+      },
+      "targets": [{ "expr": "max by (provider) (triage_circuit_state)", "legendFormat": "{{provider}}", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Model call rate and retry rate",
+      "gridPos": { "h": 5, "w": 10, "x": 4, "y": 31 },
+      "targets": [
+        { "expr": "sum by (outcome) (rate(triage_llm_calls_total[2m]))", "legendFormat": "calls {{outcome}}", "refId": "A" },
+        { "expr": "sum(rate(triage_llm_retries_total[2m]))", "legendFormat": "retries", "refId": "B" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Model call p95 latency",
+      "gridPos": { "h": 5, "w": 10, "x": 14, "y": 31 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, provider) (rate(triage_llm_duration_seconds_bucket[5m])))", "legendFormat": "{{provider}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens per second by step",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 36 },
+      "targets": [
+        { "expr": "sum by (step) (rate(triage_llm_tokens_total[2m]))", "legendFormat": "{{step}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Cost per 100 runs (USD)",
+      "description": "Priced at the per-token rates configured for the provider in force.",
+      "gridPos": { "h": 7, "w": 4, "x": 8, "y": 36 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 } },
+      "targets": [{ "expr": "triage:cost_per_100_runs_usd", "refId": "A" }]
+    },
+    {
+      "type": "piechart",
+      "title": "Spend by step (largest driver)",
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 36 },
+      "targets": [
+        { "expr": "sum by (step) (increase(triage_llm_cost_usd_total[$__range]))", "legendFormat": "{{step}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache hit ratio and rate limiting (D7)",
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 36 },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      "targets": [
+        { "expr": "triage:cache:hit_ratio", "legendFormat": "cache {{layer}}", "refId": "A" },
+        { "expr": "sum(rate(triage_rate_limit_events_total[2m]))", "legendFormat": "requests shed/s", "refId": "B" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Ingestion boundary, guardrails and corpus",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Submissions by outcome at the boundary (D1)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 44 },
+      "targets": [
+        { "expr": "sum by (outcome) (rate(triage_ingest_requests_total[2m]))", "legendFormat": "{{outcome}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Quarantined records by rule",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 44 },
+      "targets": [
+        { "expr": "sum by (reason) (increase(triage_quarantined_records_total[5m]))", "legendFormat": "{{reason}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Guardrail activations (L4)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 44 },
+      "targets": [
+        { "expr": "sum by (kind, surface) (increase(triage_guardrail_events_total[5m]))", "legendFormat": "{{kind}} @ {{surface}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Index freshness (D2)",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 50 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [{ "expr": "max(triage_index_age_seconds)", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Indexed chunks / documents",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 50 },
+      "targets": [
+        { "expr": "max(triage_index_chunks)", "legendFormat": "chunks", "refId": "A" },
+        { "expr": "max(triage_index_documents)", "legendFormat": "documents", "refId": "B" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Retrieval latency p95 by strategy",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 50 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, strategy) (rate(triage_retrieval_duration_seconds_bucket[5m])))", "legendFormat": "{{strategy}}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Live quality score (L6)",
+      "description": "Sampled live runs scored automatically against the evaluation metrics.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 50 },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1 } },
+      "targets": [
+        { "expr": "triage_live_quality_score", "legendFormat": "{{metric}}", "refId": "A" },
+        { "expr": "sum by (verdict) (increase(triage_feedback_total[1h]))", "legendFormat": "feedback {{verdict}}", "refId": "B" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Resource utilisation per container (D5)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 55 }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU cores per container",
+      "description": "From cAdvisor. On Docker Desktop CPU and memory are reliable; filesystem series are partial.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 56 },
+      "targets": [
+        {
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".*claim-triage.*|.*api.*|.*worker.*|.*chroma.*|.*redis.*|.*llm-stub.*\"}[2m]))",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory working set per container",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 56 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "expr": "sum by (name) (container_memory_working_set_bytes{name=~\".*claim-triage.*|.*api.*|.*worker.*|.*chroma.*|.*redis.*|.*llm-stub.*\"})",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

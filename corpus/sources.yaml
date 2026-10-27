@@ -1,0 +1,80 @@
+# =============================================================================
+#  Corpus manifest
+#
+#  Insurer : ICICI Lombard General Insurance Company Limited
+#  Product : Private Car Package Policy
+#            (product code 3001, UIN IRDAN115RP0017V01200102)
+#
+#  Both documents are published by the insurer and are free to download. They
+#  are NOT committed to this repository -- `make corpus` fetches them into
+#  corpus/raw/, which is git-ignored. This keeps the repo small and makes the
+#  provenance of every indexed byte explicit and re-checkable.
+#
+#  Both have a real text layer, so no OCR step is needed. The loader refuses to
+#  index a document that yields fewer than 120 characters per page rather than
+#  indexing it as silently empty.
+# =============================================================================
+
+insurer:
+  name: ICICI Lombard General Insurance Company Limited
+  product: Private Car Package Policy
+  product_code: "3001"
+  uin: IRDAN115RP0017V01200102
+
+documents:
+  # ---------------------------------------------------------------------------
+  # 1. The full policy wording. 46 pages. This is the document the coverage
+  #    position is grounded in. Its structure is the reason the chunker is
+  #    heading-aware:
+  #
+  #      Chapter 1  Section I   -- own damage cover          (the grant)
+  #      Chapter 1  Section II  -- liability to third parties (the grant)
+  #      Chapter 1  Section III -- personal accident cover
+  #      Chapter 2  1. GENERAL EXCEPTIONS                     (the exclusions)
+  #      Chapter 3  Conditions                                (duties on claim)
+  #      Chapter 4  Limitations as to Use                     (the restriction)
+  #      Chapter 5  Driver's Clause                           (the restriction)
+  #      Chapter 6  Claim Procedure                           (the procedure)
+  #
+  #    The section 4.1 demonstration case lives in the join between Section I,
+  #    General Exceptions III(a) and Chapter 4. See docs/difficult-case.md.
+  # ---------------------------------------------------------------------------
+  - document_id: il_private_car_package_wording
+    title: "ICICI Lombard - Private Car Package Policy - Policy Wording"
+    filename: il_private_car_package_wording.pdf
+    url: https://www.icicidirect.com/mailcontent/car_package_policy_wording.pdf
+    kind: pdf
+    role_hint: policy_wording
+    enabled: true
+
+  # ---------------------------------------------------------------------------
+  # 2. The same insurer's product and claims document for the comprehensive
+  #    private car package: what the covers are, how a claim is registered,
+  #    cashless versus reimbursement, and the documents a claimant must supply.
+  #    This is what the routing stage cites when it states what the chosen
+  #    queue will require of the handler.
+  # ---------------------------------------------------------------------------
+  - document_id: il_private_car_claims_procedure
+    title: "ICICI Lombard - Private Car Comprehensive Package Policy - Product and Claims Procedure"
+    filename: il_private_car_claims_procedure.pdf
+    url: https://bandhan.bank.in/sites/default/files/2026-05/Private-Car-Comprehensive-Package-Policy.pdf
+    kind: pdf
+    role_hint: claims_procedure
+    enabled: true
+
+  # ---------------------------------------------------------------------------
+  # 3. An alternative hosted copy of the same insurer's car wording. Disabled by
+  #    default: it is a different revision of document 1, so enabling it gives
+  #    the retriever two near-identical texts and citations start landing on
+  #    whichever copy scored marginally higher. Left here because "what happens
+  #    when the corpus contains two versions of the same wording" is a real
+  #    operational question, and we answer it by excluding one deliberately
+  #    rather than by not having noticed.
+  # ---------------------------------------------------------------------------
+  - document_id: il_car_wording_alt_revision
+    title: "ICICI Lombard - Car Insurance Policy Wording (alternative revision)"
+    filename: il_car_wording_alt_revision.pdf
+    url: https://www.americanexpress.com/content/dam/amex/in/Insurance/car-insurance-policy-wordings-icici.pdf
+    kind: pdf
+    role_hint: policy_wording
+    enabled: false
