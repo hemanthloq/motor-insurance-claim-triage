@@ -39,13 +39,68 @@ the point of the system, not a limitation of it.
 
 ## Quick start
 
-**You need:** Docker with Compose v2, about 6 GB of free disk, and an API key for
-any model provider with a free tier. Nothing else — no Python on the host, no
-local model.
+Two ways in. **A** needs only Python and takes about two minutes. **B** is the
+real deployment. Neither needs `make` — every target in the `Makefile` is a
+convenience wrapper over the commands shown here, so if you do not have `make`
+(most Windows installs do not), just run the commands.
+
+---
+
+### A — one process, no Docker, no API key
+
+Everything in one Python process: the in-memory state backend, a local vector
+store on disk, and the in-repo stub provider. No Redis, no Chroma, no key.
 
 ```bash
-git clone <this-repo> claim-triage && cd claim-triage
+git clone https://github.com/hemanthloq/motor-insurance-claim-triage
+cd motor-insurance-claim-triage
 
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements-dev.txt   # Windows
+# .venv/bin/python -m pip install -r requirements-dev.txt         # Linux / macOS
+
+bash scripts/run-local.sh
+```
+
+That script downloads the insurer's two published documents, builds the clause
+index, and serves on <http://localhost:8080>. First run takes a minute or two
+for the download and the index; after that it starts in a couple of seconds.
+
+Then, in a second terminal:
+
+```bash
+bash scripts/demo.sh    http://localhost:8080   # the section 4.1 case, end to end
+bash scripts/smoke.sh   http://localhost:8080   # PASS/FAIL for all ten demo items
+.venv/Scripts/python.exe -m pytest              # 167 tests, ~4 seconds
+```
+
+**What this path does and does not show.** Every endpoint, contract, validation
+rule, guardrail, agent hand-off, verification step and trace is exercised for
+real. What is *not* real is the model: the stub cannot read a policy clause, so
+the coverage *reasoning* is placeholder text and three of the 25 evaluation
+scenarios fail by design. Add a key (below) and the same command uses it.
+See [docs/stub-provider.md](docs/stub-provider.md).
+
+To use a real model on this path, export three variables first:
+
+```bash
+export LLM_PROVIDER=openai_compat
+export LLM_BASE_URL=https://api.groq.com/openai/v1
+export LLM_API_KEY=gsk_...
+export LLM_MODEL=llama-3.3-70b-versatile
+bash scripts/run-local.sh
+```
+
+Useful flags: `--reindex` to rebuild the index, `--port 9000` to move it.
+
+---
+
+### B — the full system under Docker
+
+**You need:** Docker with Compose v2, about 6 GB of free disk, and an API key for
+any model provider with a free tier. Nothing else — no Python on the host.
+
+```bash
 # 1. configure. Nothing secret is committed; the blanks in .env.example are blank
 #    on purpose and the file documents every one of them.
 cp .env.example .env
@@ -68,6 +123,12 @@ curl -s localhost:8080/health/corpus | python -m json.tool
 Then open **<http://localhost:3000>** and press *Submit*. The form is
 pre-loaded with the section 4.1 reference case; the buttons along the top switch
 between the other scenarios.
+
+> This path has **not been run by the author** — Docker is not installed on the
+> machine this was built on. Every service, Dockerfile stage and health check is
+> written and reviewed, and path A is verified end to end, but the container
+> build itself is unexercised. If something here fails, that is why; see
+> [What is not finished](#what-is-not-finished).
 
 ### Filling in `.env`
 
@@ -293,7 +354,9 @@ backend is live so it can never be mistaken for working:
 
 ## Everyday commands
 
-`make help` lists everything. The ones you will use:
+`make help` lists everything. **`make` is optional** — each target is a thin
+wrapper, and the command it runs is printed in the `Makefile` if you would
+rather run it directly. The ones you will use:
 
 ```bash
 make up                 # build and start the system
@@ -313,21 +376,48 @@ make down               # stop, keep the volumes
 make nuke               # stop and delete the volumes (index and runs are lost)
 ```
 
+Without `make`, and without Docker, the equivalents are
+`bash scripts/run-local.sh`, `bash scripts/demo.sh`, `bash scripts/smoke.sh`
+and `.venv/Scripts/python.exe -m pytest`.
+
 ---
 
 ## Running without Docker
 
-Useful while working on the code. Everything runs in one process with the
-in-memory state backend, a local numpy vector store and the in-process stub
-provider — no Redis, no Chroma, no API key:
+This is [path A](#a--one-process-no-docker-no-api-key) above:
+`bash scripts/run-local.sh`. `scripts/dev.env` holds the profile it loads.
+
+If you prefer to drive it by hand, or want the pieces separately, the launcher
+is doing exactly this:
 
 ```bash
-make dev        # ingests the corpus, then serves on :8080 with reload
-make test       # the full test suite, 167 tests, ~4 seconds
+set -a; . scripts/dev.env; set +a          # load the no-Docker profile
+export PYTHONPATH=.
+
+.venv/Scripts/python.exe -m claimtriage.cli ingest        # build the index
+.venv/Scripts/python.exe -m uvicorn claimtriage.api.app:app --port 8080
 ```
 
-`scripts/dev.env` holds that profile. To run the pieces separately against a
-local Redis, there are `make dev-api`, `make dev-worker` and `make dev-stub`.
+Other things worth knowing on this path:
+
+```bash
+# the CLI, without the service running at all
+.venv/Scripts/python.exe -m claimtriage.cli --help
+.venv/Scripts/python.exe -m claimtriage.cli search "hire or reward" --strategy lexical
+.venv/Scripts/python.exe -m claimtriage.cli triage my-claim.json
+.venv/Scripts/python.exe -m claimtriage.cli index-info
+
+# the API and the worker as separate processes, against a local Redis
+EXECUTION_MODE=queue REDIS_URL=redis://localhost:6379/0 \
+  .venv/Scripts/python.exe -m uvicorn claimtriage.api.app:app --port 8080
+EXECUTION_MODE=queue REDIS_URL=redis://localhost:6379/0 \
+  .venv/Scripts/python.exe -m claimtriage.worker.executor
+
+# the stub provider as a service -- needed for demonstration item 8
+.venv/Scripts/python.exe -m uvicorn claimtriage.stub.app:app --port 9009
+```
+
+On Linux or macOS substitute `.venv/bin/python` throughout.
 
 ---
 

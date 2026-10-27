@@ -748,7 +748,35 @@ def circuit_control(action: str) -> Any:
 # Web client (A8)
 # -----------------------------------------------------------------------------
 
-try:
-    app.mount("/", StaticFiles(directory="/app/web", html=True), name="web")
-except Exception:  # not present outside the container
-    pass
+def _mount_web_client() -> None:
+    """Serve the web client from the API when it can be found.
+
+    Two locations, because this process runs in two places: `/app/web` inside
+    the container, and `<repo>/web` when the service is run straight from a
+    checkout with `scripts/run-local.sh`. In the compose topology nginx serves
+    the client instead and this mount is simply unused; locally it is the only
+    way to reach it, and a demonstration that needs Docker running to show a
+    web page is not much of a fallback.
+
+    Mounted last, at "/", because a StaticFiles mount there would otherwise
+    shadow every route declared after it.
+    """
+    from pathlib import Path
+
+    candidates = [
+        Path("/app/web"),
+        Path(__file__).resolve().parents[2] / "web",
+        Path.cwd() / "web",
+    ]
+    for directory in candidates:
+        try:
+            if (directory / "index.html").is_file():
+                app.mount("/", StaticFiles(directory=str(directory), html=True), name="web")
+                log.info("web_client_mounted", directory=str(directory))
+                return
+        except Exception:  # an unreadable path must not stop the API starting
+            continue
+    log.info("web_client_not_found", looked_in=[str(c) for c in candidates])
+
+
+_mount_web_client()
