@@ -947,7 +947,7 @@ pres.addSection({ title: "Results" });
 pres.addSection({ title: "Judgement" });
 {
   const s = pres.addSlide({ masterName: "CONTENT_DARK", sectionTitle: "Judgement" });
-  s.addText("Seven incidents — six of them reported success", { placeholder: "title" });
+  s.addText("Eight incidents — six of them reported success", { placeholder: "title" });
 
   const incidents = [
     ["Every clause filed under the wrong chapter", "A trailing space in the PDF defeated the line-joining test, so a chapter heading was swallowed into the paragraph above. Citations would have pointed at the wrong page. Nothing failed."],

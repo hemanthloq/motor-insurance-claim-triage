@@ -20,7 +20,7 @@ slide.
 | 10 | How it is evaluated | Escalating is **not** counted as a hallucination |
 | 11 | The objective, declared before measuring | Fails at ~640 callers; the 40-thread pool is responsible |
 | 12 | Where the tokens go | The context block is the cost; the run cache is −95% on repeats and nothing on unique traffic |
-| 13 | **Seven incidents** | Six of them reported success — that is this system's real failure mode |
+| 13 | **Eight incidents** | Six of them reported success — that is this system's real failure mode |
 | 14 | What is not finished | Volunteer the gaps before anyone finds them |
 | 15 | Demonstration | `scripts/demo.sh` |
 

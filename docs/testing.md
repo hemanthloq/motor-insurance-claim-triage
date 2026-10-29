@@ -107,11 +107,13 @@ position on the section 4.1 case for the right reason — only that it finds and
 cites the right clauses and does not fast-track it. The evaluation set is the
 instrument for the rest, and it needs a provider.
 
-**The web client.** Nothing automated submits what `web/index.html` builds. It
-was unusable for seven months because its hard-coded policy period expired
-while every test kept passing against a different fixture (INC-007). A smoke
-check that posts the exact body the form constructs is the cheap guard, and it
-is not there.
+**The web client — partially covered now.** `scripts/check-web-client.js`
+executes the page's script against a stubbed DOM and asserts three things: the
+script runs to completion, a submit handler is attached, and `buildFNOL()`
+produces a contract-valid body. It catches both defects that actually shipped
+(INC-007, INC-008) and is verified against each. What it still cannot do is
+render: it will not tell you the page looks right, only that it is not dead.
+It needs node, and `smoke.sh` skips it with a notice when node is absent.
 
 **OpenTelemetry export.** `setup_tracing` is a no-op without a collector
 endpoint, and the tests run with `TRACING_ENABLED=false`. Spans are created in

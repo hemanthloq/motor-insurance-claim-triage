@@ -136,6 +136,33 @@
 const API = location.port === "3000" || location.port === "" ? "" : "";
 const $ = (id) => document.getElementById(id);
 
+// Declared at the top, before anything runs. These were originally defined
+// next to buildFNOL, below the init() IIFE that uses them -- a const is in the
+// temporal dead zone until its declaration is reached, so init() threw, the
+// rest of the script never executed, and the submit handler was never
+// attached. The page looked fine and the button did nothing.
+const DAY = 86400000;
+const isoDate = (d) => new Date(d).toISOString().slice(0, 10);
+
+// A script error must not leave a dead page with no explanation. Anything that
+// escapes lands in the output panel where it can be read, instead of only in a
+// console nobody has open.
+window.addEventListener("error", (e) => {
+  const out = document.getElementById("out");
+  if (!out) return;
+  out.innerHTML =
+    '<h2>Recommendation</h2><div class="err"><strong>The page hit a script error.</strong><br>' +
+    esc(e.message) + "<br><small>" + esc((e.filename || "") + ":" + (e.lineno || "")) +
+    "</small></div>";
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const out = document.getElementById("out");
+  if (!out) return;
+  out.innerHTML =
+    '<h2>Recommendation</h2><div class="err"><strong>A request failed.</strong><br>' +
+    esc(String(e.reason)) + "</div>";
+});
+
 const SCENARIOS = {
   "Food delivery (§4.1)": {
     use: "food_or_parcel_delivery", est: 48000, drivable: "true", tp: "false",
@@ -222,9 +249,6 @@ async function refreshState() {
       </div>`;
   } catch (e) { $("state").textContent = "service unreachable: " + e; }
 }
-
-const DAY = 86400000;
-const isoDate = (d) => new Date(d).toISOString().slice(0, 10);
 
 function buildFNOL() {
   const dol = new Date($("dol").value);

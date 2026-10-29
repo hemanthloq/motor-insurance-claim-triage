@@ -4,7 +4,7 @@ Real failures during development. Each entry records what the symptom was, what
 it actually turned out to be, what it cost, and what changed so it cannot recur
 silently. They are here in the order they were found.
 
-The common thread in six of the seven is worth stating up front: **every one of
+The common thread in six of the eight is worth stating up front: **every one of
 them produced a plausible-looking result rather than an error.** A heading swallowed
 into a paragraph, a guardrail quietly rewriting a quote, a load test submitting
 nothing, a cache inflating its own cost report — all of them would have been
@@ -396,6 +396,65 @@ the web client is listed there as unverified, and it was. A page that no test
 exercises is a page that is broken until someone opens it. The cheap guard
 would be a single smoke check that submits the exact body the form builds —
 not added, and recorded here rather than claimed.
+
+---
+
+## INC-008 — The fix for INC-007 killed the submit button
+
+**When:** immediately after shipping the INC-007 fix
+**Severity:** high — the demonstration page did nothing at all
+**Detected by:** the user clicking Submit and getting no response whatsoever
+
+### Symptom
+
+The page rendered perfectly. Every field, every scenario button, the layout,
+the footer. Clicking **Submit** did nothing: no request, no error, no change to
+the output panel. Silence.
+
+### Cause
+
+The INC-007 fix added two module-level constants:
+
+```js
+const DAY = 86400000;
+const isoDate = (d) => new Date(d).toISOString().slice(0, 10);
+```
+
+placed next to `buildFNOL()`, which is **below** the `(function init(){...})()`
+that runs on load — and `init()` calls `showPeriod()`, which uses both. A
+`const` is in the temporal dead zone until its declaration is reached, so
+`init()` threw `ReferenceError: Cannot access 'DAY' before initialization`.
+
+That throw aborted the rest of the script. `$("form").onsubmit = ...` sits 50
+lines further down and never executed, so the form had no handler. A dead
+button, and nothing on screen to say why.
+
+### Why it was worse than the bug it replaced
+
+INC-007 at least *told the user something* — it rendered a quarantine record.
+This failed silently. The only evidence was in a browser console nobody had
+open.
+
+### Fix
+
+- The two constants moved to the top of the script, above everything that uses
+  them.
+- `window.onerror` and `unhandledrejection` handlers now render the error into
+  the output panel. A script error must not leave a dead page with no
+  explanation.
+- `scripts/check-web-client.js`: stubs enough DOM to execute the page's script
+  outside a browser, then asserts the script runs to completion, a submit
+  handler is attached, and `buildFNOL()` produces a body that satisfies the
+  cross-field rules. Verified against both historical defects — reintroducing
+  INC-007 or INC-008 makes it fail with the specific reason.
+- Wired into `scripts/smoke.sh` as check 1b, skipped with a notice when node is
+  absent.
+
+### Cost
+
+Twenty minutes, and it was shipped to the user before being caught — the second
+time in a row that a web-client change went out unexercised. That is what the
+checker is for, and it is the guard INC-007 said was missing and did not add.
 
 ---
 

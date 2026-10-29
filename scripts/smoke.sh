@@ -74,6 +74,21 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+say "1b  the web client is not dead"
+# ---------------------------------------------------------------------------
+# Nothing else here loads web/index.html, and it has broken twice for reasons
+# the Python suite cannot see (INC-007, INC-008). Needs node; skipped without.
+if command -v node >/dev/null 2>&1; then
+  if node "${HERE}/check-web-client.js" >/dev/null 2>&1; then
+    ok "web client script runs and its submit handler is attached"
+  else
+    bad "web client check failed -- run: node scripts/check-web-client.js"
+  fi
+else
+  echo "  SKIP  node not installed; cannot check the web client"
+fi
+
+# ---------------------------------------------------------------------------
 say "2  a valid request produces a routed recommendation with resolving citations"
 # ---------------------------------------------------------------------------
 BODY=$(fnol "SMOKE-ORD-$$" "private_social_domestic" \
