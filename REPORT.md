@@ -496,7 +496,7 @@ nothing.
 
 ### The common thread
 
-Five of the six incidents produced a **plausible-looking result rather than an
+Six of the seven incidents produced a **plausible-looking result rather than an
 error.** A heading swallowed into a paragraph, a guardrail quietly rewriting a
 quote, a load test submitting nothing valid, a cache inflating its own cost
 report — every one would have been read as a success by anyone looking at the
@@ -560,7 +560,7 @@ In order:
 | Guardrail surfaces | 3 — input, tool, output |
 | Evaluation scenarios | 25, each with its supporting passage |
 | Tests | 167, ~4 s, no infrastructure needed |
-| Incidents recorded | 6, all genuine |
+| Incidents recorded | 7, all genuine |
 | Prompt sets | 2, versioned, content-hashed, recorded on every response |
 | Corpus | 2 documents, 46 + 8 pages, 381 chunks, 74.6 chunks/s, SHA-256-keyed idempotent ingestion |
 

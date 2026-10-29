@@ -107,6 +107,12 @@ position on the section 4.1 case for the right reason — only that it finds and
 cites the right clauses and does not fast-track it. The evaluation set is the
 instrument for the rest, and it needs a provider.
 
+**The web client.** Nothing automated submits what `web/index.html` builds. It
+was unusable for seven months because its hard-coded policy period expired
+while every test kept passing against a different fixture (INC-007). A smoke
+check that posts the exact body the form constructs is the cheap guard, and it
+is not there.
+
 **OpenTelemetry export.** `setup_tracing` is a no-op without a collector
 endpoint, and the tests run with `TRACING_ENABLED=false`. Spans are created in
 code and never asserted on.

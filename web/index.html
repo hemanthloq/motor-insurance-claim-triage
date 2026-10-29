@@ -88,7 +88,8 @@
         <div><label for="est">Repair estimate (INR)</label><input id="est" type="number" value="48000" required></div>
       </div>
       <div class="row">
-        <div><label for="dol">Date of loss</label><input id="dol" type="datetime-local" required></div>
+        <div><label for="dol">Date of loss</label><input id="dol" type="datetime-local" required>
+          <div class="muted" id="period" style="font-size:11px;margin-top:3px"></div></div>
         <div><label for="use">Vehicle use at time of loss</label>
           <select id="use">
             <option value="private_social_domestic">private / social / domestic</option>
@@ -184,11 +185,22 @@ Object.keys(SCENARIOS).forEach(name => {
   $("scenarios").appendChild(b);
 });
 
+/** Show the cover period the submission will carry, so the date field is not
+ *  silently coupled to a rule the user cannot see. */
+function showPeriod() {
+  const dol = new Date($("dol").value);
+  if (isNaN(dol)) { $("period").textContent = ""; return; }
+  $("period").textContent =
+    `policy in force ${isoDate(dol.getTime() - 200 * DAY)} to ${isoDate(dol.getTime() + 160 * DAY)}`;
+}
+
 (function init() {
   const d = new Date(Date.now() - 2 * 3600 * 1000);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   $("dol").value = d.toISOString().slice(0, 16);
+  $("dol").addEventListener("change", showPeriod);
   loadScenario("Food delivery (§4.1)");
+  showPeriod();
   refreshState();
 })();
 
@@ -211,17 +223,26 @@ async function refreshState() {
   } catch (e) { $("state").textContent = "service unreachable: " + e; }
 }
 
+const DAY = 86400000;
+const isoDate = (d) => new Date(d).toISOString().slice(0, 10);
+
 function buildFNOL() {
   const dol = new Date($("dol").value);
   const stolen = $("form").dataset.stolen === "1";
+  // The policy period is derived from the date of loss, not hard-coded.
+  // A fixed period works until the day it stops: with literal 2025-04-01 and
+  // 2026-03-31 in here, every claim submitted after March 2026 failed the
+  // `loss_within_policy_period` cross-field rule and the page showed a
+  // quarantine record instead of a recommendation. Same bug as INC-003 in the
+  // load test, in a second place.
   return {
     contract_version: "1.0.0",
     claim_reference: $("ref").value,
     policy_number: $("policy").value,
     insurer_code: "ICICI_LOMBARD",
     product_code: "PRIVATE_CAR_PACKAGE",
-    policy_start_date: "2025-04-01",
-    policy_end_date: "2026-03-31",
+    policy_start_date: isoDate(dol.getTime() - 200 * DAY),
+    policy_end_date: isoDate(dol.getTime() + 160 * DAY),
     date_of_loss: dol.toISOString(),
     reported_at: new Date().toISOString(),
     channel: "web_form",

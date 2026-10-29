@@ -4,7 +4,7 @@ Real failures during development. Each entry records what the symptom was, what
 it actually turned out to be, what it cost, and what changed so it cannot recur
 silently. They are here in the order they were found.
 
-The common thread in five of the six is worth stating up front: **every one of
+The common thread in six of the seven is worth stating up front: **every one of
 them produced a plausible-looking result rather than an error.** A heading swallowed
 into a paragraph, a guardrail quietly rewriting a quote, a load test submitting
 nothing, a cache inflating its own cost report — all of them would have been
@@ -331,6 +331,71 @@ behaviour down, not to alter it to match an assumption nobody had checked.
 ### Cost
 
 Fifteen minutes.
+
+---
+
+## INC-007 — The same date bug as INC-003, in a second place
+
+**When:** first time the web client was opened by someone other than its author
+**Severity:** medium — the demonstration page could not complete a single claim
+**Detected by:** the user clicking Submit
+
+### Symptom
+
+Every submission from the web client came back rejected:
+
+```
+REJECTED AT THE INGESTION BOUNDARY
+No agent run started. Stage: cross_field.
+  date_of_loss | loss_within_policy_period
+  date_of_loss falls outside the policy period 2025-04-01..2026-03-31
+```
+
+Not one scenario button worked. The page could show the rejection path and
+nothing else.
+
+### Cause
+
+`web/index.html` defaulted the date of loss to `now() - 2h` while hard-coding
+the policy period as `2025-04-01` to `2026-03-31`. Every claim submitted after
+31 March 2026 therefore fell outside cover and was correctly rejected by the
+`loss_within_policy_period` cross-field rule.
+
+**This is INC-003 exactly, in a different file.** The load test had the same
+defect — a dynamic loss date against a literal policy period — and when it was
+fixed there, nobody grepped for the other places the same pair of literals
+appeared. There were three: `loadtest/locustfile.py` (fixed at the time),
+`scripts/_make_fnol.py` and `eval/dataset.yaml` (both safe, because they fix
+the loss date *too*, so the pair stays consistent), and `web/index.html`
+(broken, because it mixed one dynamic value with two static ones).
+
+### Why it survived every check
+
+The test suite, `demo.sh`, `smoke.sh` and the evaluation set all run against
+`_make_fnol.py` or `dataset.yaml`, where both dates are literals and therefore
+consistent. **Nothing automated submits what the web client submits.** 167
+tests, 25 scenarios and a 23/25 smoke run all passed on the day the page was
+unusable.
+
+### Fix
+
+- The policy period is derived from the date of loss
+  (`dol - 200 days` to `dol + 160 days`), as the load test already did.
+- The derived period is displayed under the date field, so a submission can no
+  longer be silently coupled to a rule the user cannot see.
+
+### Cost
+
+Ten minutes to fix. It had been broken since 31 March 2026 and was found by
+the first person to click the button.
+
+### What it says about the testing
+
+The honest reading is in [docs/testing.md](docs/testing.md#what-is-not-verified):
+the web client is listed there as unverified, and it was. A page that no test
+exercises is a page that is broken until someone opens it. The cheap guard
+would be a single smoke check that submits the exact body the form builds —
+not added, and recorded here rather than claimed.
 
 ---
 

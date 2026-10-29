@@ -947,41 +947,42 @@ pres.addSection({ title: "Results" });
 pres.addSection({ title: "Judgement" });
 {
   const s = pres.addSlide({ masterName: "CONTENT_DARK", sectionTitle: "Judgement" });
-  s.addText("Six incidents — five of them reported success", { placeholder: "title" });
+  s.addText("Seven incidents — six of them reported success", { placeholder: "title" });
 
   const incidents = [
-    ["Every clause filed under the wrong chapter", "A trailing space in the PDF defeated the line-joining test, so a chapter heading was swallowed into the paragraph above. Citations would have quoted the right words and pointed at the wrong page. Nothing failed."],
-    ["The guardrail rewrote the text it protected", "It neutralised directives inside retrieved corpus text — which the model then quoted. Quotes no longer matched the stored clause, so runs looped and escalated, looking like a retrieval fault."],
+    ["Every clause filed under the wrong chapter", "A trailing space in the PDF defeated the line-joining test, so a chapter heading was swallowed into the paragraph above. Citations would have pointed at the wrong page. Nothing failed."],
+    ["The guardrail rewrote the text it protected", "It neutralised directives inside corpus text the model then quoted. Quotes no longer matched the stored clause, so runs looped and escalated, looking like a retrieval fault."],
     ["The load test declared the objective met on 100% failures", "Hard-coded policy dates against a now()-derived loss date. Every claim was rejected in 3 ms, so the run looked fast: p95 0.00 s, target met."],
     ["The cache made its own benefit invisible", "A cache hit replayed the originating run's token count, inflating cost-per-100-runs by exactly the amount the cache saved."],
     ["The largest cost driver was reported as the cheapest step", "max() over per-step spend, where every price is zero on a free tier, returns whichever key comes first."],
+    ["The same date bug again, in a second file", "The web client paired a now()-derived loss date with a hard-coded policy period. Unusable for months while every test passed against a different fixture."],
   ];
   incidents.forEach(([head, body], i) => {
-    const y = 1.28 + i * 0.97;
-    card(s, { x: M, y, w: CW, h: 0.86, fill: "2E3346", name: `inc-${i}` });
+    const y = 1.26 + i * 0.71;
+    card(s, { x: M, y, w: CW, h: 0.64, fill: "2E3346", name: `inc-${i}` });
     s.addText(`0${i + 1}`, {
-      x: M + 0.26, y: y + 0.1, w: 0.6, h: 0.66, fontSize: 18, bold: true, color: HEX.accent2,
+      x: M + 0.26, y: y + 0.06, w: 0.6, h: 0.52, fontSize: 16, bold: true, color: HEX.accent2,
       valign: "middle", margin: 0, isTextBox: true, objectName: `inc-${i}-n`,
     });
     s.addText(head, {
-      x: M + 0.92, y: y + 0.11, w: 4.5, h: 0.64, fontSize: 12.5, bold: true, color: "FFFFFF",
+      x: M + 0.92, y: y + 0.07, w: 4.5, h: 0.5, fontSize: 12, bold: true, color: "FFFFFF",
       valign: "middle", lineSpacingMultiple: 1.04, margin: 0, isTextBox: true,
       objectName: `inc-${i}-head`,
     });
     s.addText(body, {
-      x: M + 5.56, y: y + 0.11, w: 6.3, h: 0.64, fontSize: 11, color: "B9C0CE",
+      x: M + 5.56, y: y + 0.05, w: 6.3, h: 0.56, fontSize: 10, color: "B9C0CE",
       valign: "middle", lineSpacingMultiple: 1.08, margin: 0, isTextBox: true,
       objectName: `inc-${i}-body`,
     });
   });
 
-  card(s, { x: M, y: 6.1, w: CW, h: 0.78, fill: "3A2F2E", name: "thread" });
+  card(s, { x: M, y: 6.24, w: CW, h: 0.62, fill: "3A2F2E", name: "thread" });
   s.addText(
     [
       { text: "The common thread:  ", options: { bold: true, color: "E0A458" } },
-      { text: "every one produced a plausible-looking result rather than an error. That is the failure mode this kind of system has — and the argument for the deterministic citation check, the valid_for_reporting flag, and a load test that refuses to conclude.", options: { color: "F3E3DF" } },
+      { text: "each produced a plausible-looking result rather than an error — the argument for the deterministic citation check, the valid_for_reporting flag, and a load test that refuses to conclude.", options: { color: "F3E3DF" } },
     ],
-    { x: M + 0.34, y: 6.1, w: CW - 0.68, h: 0.78, fontSize: 12.5, valign: "middle",
+    { x: M + 0.34, y: 6.24, w: CW - 0.68, h: 0.62, fontSize: 11.5, valign: "middle",
       lineSpacingMultiple: 1.08, margin: 0, isTextBox: true, objectName: "thread-text" }
   );
   s.addNotes("This is the engineering-judgement slide. Do not rush it — it is worth more than any feature slide.");
