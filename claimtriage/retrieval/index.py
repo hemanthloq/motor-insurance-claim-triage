@@ -98,8 +98,39 @@ def _as_hit(record: dict[str, Any], score: float) -> SearchHit:
     )
 
 
+#: BM25 is unbounded, so it is mapped onto [0, 1) by saturation:
+#: score / (score + LEXICAL_HALF). A raw score of LEXICAL_HALF maps to 0.5. Six
+#: is roughly what a query sharing two distinctive terms with a clause scores on
+#: this corpus; a query sharing none scores zero.
+LEXICAL_HALF = 6.0
+
+#: How often a long-lived index checks whether the corpus was rebuilt under it.
+FRESHNESS_INTERVAL_SECONDS = 5.0
+
+#: Weight of the dense ranking in fusion when the embedder is the hash
+#: fallback, which has no semantic signal. See `ClauseIndex._fuse`.
+HASH_DENSE_WEIGHT = 0.25
+
+#: Candidates each ranker contributes to fusion, independent of top_k.
+FUSION_POOL = 50
+
+
+def lexical_evidence(bm25_score: float) -> float:
+    return max(0.0, bm25_score) / (max(0.0, bm25_score) + LEXICAL_HALF)
+
+
 class ClauseIndex:
-    """Thread-safe read path; writes happen only through the ingest CLI."""
+    """Thread-safe read path; writes happen only through the ingest CLI.
+
+    Long-lived: the API and every worker hold one for their whole lifetime,
+    while the corpus is rebuilt by a *different* process (`tools ingest`). So
+    every read first asks, at most every few seconds, whether the index version
+    has moved, and reloads if it has. Without that check the documented startup
+    order -- `docker compose up`, then `ingest` -- leaves every worker holding
+    the empty index it started with: dense search still works through Chroma,
+    so nothing obviously fails, but BM25 and `find_named_clause` silently return
+    nothing, and the section 4.1 mechanism quietly stops working.
+    """
 
     def __init__(self, store: VectorStore | None = None) -> None:
         self.settings = get_settings()
@@ -109,13 +140,40 @@ class ClauseIndex:
         self._bm25_ids: list[str] = []
         self._records_by_id: dict[str, dict] = {}
         self._ordered_ids: list[str] = []
+        self._version: str | None = None
+        self._last_fresh_check = 0.0
+        self.freshness_interval = FRESHNESS_INTERVAL_SECONDS
         self.refresh()
 
     # -- lifecycle ------------------------------------------------------------
 
+    def _ensure_fresh(self) -> None:
+        """Reload if the corpus was rebuilt by another process since we looked."""
+        now = time.monotonic()
+        if now - self._last_fresh_check < self.freshness_interval:
+            return
+        self._last_fresh_check = now
+        try:
+            version = read_index_meta().get("index_version")
+        except Exception:
+            return
+        if version == self._version:
+            return
+        with self._lock:
+            if version == self._version:
+                return
+            log.info(
+                "index_rebuilt_elsewhere_reloading",
+                previous_version=self._version,
+                new_version=version,
+            )
+            self.store.reload()
+            self.refresh()
+
     def refresh(self) -> None:
         """Rebuild the in-process lexical index from the vector store."""
         with self._lock:
+            self._version = read_index_meta().get("index_version")
             records = self.store.all_records()
             records.sort(key=lambda r: (r.get("document_id", ""), int(r.get("ordinal") or 0)))
             self._records_by_id = {r["clause_id"]: r for r in records}
@@ -124,7 +182,16 @@ class ClauseIndex:
                 try:
                     from rank_bm25 import BM25Okapi
 
-                    self._bm25 = BM25Okapi([tokenise(r.get("text", "")) for r in records])
+                    # The heading is indexed with the body. It is the most
+                    # informative string a clause has -- "SECTION I. LOSS OF OR
+                    # DAMAGE TO THE VEHICLE INSURED" -- and an earlier version
+                    # indexed body text only, so a search for "loss or damage
+                    # to the vehicle insured" ranked prospectus pages and add-ons
+                    # above the own-damage grant itself. Dense retrieval already
+                    # saw the heading (it is in `embed_text`); BM25 did not.
+                    self._bm25 = BM25Okapi([
+                        tokenise(f"{r.get('section_path', '')} {r.get('text', '')}") for r in records
+                    ])
                     self._bm25_ids = list(self._ordered_ids)
                 except Exception as exc:
                     log.warning("bm25_unavailable", error=str(exc))
@@ -193,6 +260,7 @@ class ClauseIndex:
     ) -> list[SearchHit]:
         top_k = top_k or self.settings.retrieval_top_k
         started = time.perf_counter()
+        self._ensure_fresh()
 
         cache_digest = None
         if self.settings.cache_retrievals:
@@ -223,10 +291,15 @@ class ClauseIndex:
         if document_id:
             where["document_id"] = document_id
 
+        # Each ranker contributes a fixed-depth candidate list, not one sized by
+        # top_k. With `top_k * 3` the fused order depended on how many results
+        # were asked for: at k=6 the own-damage grant fell outside the dense
+        # pool, lost its dense vote, and dropped out; at k=8 it ranked third.
+        pool = max(FUSION_POOL, top_k)
         dense: list[dict] = []
         if strategy in {"hybrid", "dense"}:
             vector = get_embedder().embed_query(query)
-            dense = self.store.query(vector, top_k * 3, where or None)
+            dense = self.store.query(vector, pool, where or None)
 
         lexical: list[dict] = []
         if strategy in {"hybrid", "lexical"} and self._bm25 is not None:
@@ -241,12 +314,15 @@ class ClauseIndex:
                 if where and not self._matches(record, where):
                     continue
                 lexical.append({**record, "score": float(scores[position])})
-                if len(lexical) >= top_k * 3:
+                if len(lexical) >= pool:
                     break
 
-        hits = self._fuse(dense, lexical, top_k) if strategy == "hybrid" else [
-            _as_hit(r, r.get("score", 0.0)) for r in (dense or lexical)[:top_k]
-        ]
+        if strategy == "hybrid":
+            hits = self._fuse(dense, lexical, top_k)
+        elif strategy == "dense":
+            hits = [_as_hit(r, max(0.0, min(1.0, r.get("score", 0.0)))) for r in dense[:top_k]]
+        else:
+            hits = [_as_hit(r, lexical_evidence(r.get("score", 0.0))) for r in lexical[:top_k]]
 
         retrieval_latency.labels(strategy=strategy).observe(time.perf_counter() - started)
         if cache_digest:
@@ -265,38 +341,57 @@ class ClauseIndex:
         return True
 
     def _fuse(self, dense: list[dict], lexical: list[dict], top_k: int) -> list[SearchHit]:
-        """Reciprocal rank fusion.
+        """Reciprocal rank fusion for the *order*; absolute evidence for the *score*.
 
         RRF rather than a weighted score sum because the two scales are not
         comparable -- cosine is bounded in [-1, 1], BM25 is unbounded and
         corpus-dependent -- and normalising them would mean choosing a weight we
         have no principled way to set on a corpus of this size.
+
+        But RRF only ranks. An earlier version reported `rrf / best_rrf` as the
+        hit's score, which makes the top hit 1.0 *by construction* -- for a
+        perfect match and for a query of pure gibberish alike. Every consumer of
+        that number was then reading a rank, not a relevance: the
+        weak-retrieval escalation (`best < ESCALATION_MIN_RETRIEVAL_SCORE`)
+        could never fire, and every citation displayed "relevance 1.00".
+
+        So the score each hit carries is now its absolute evidence: the better
+        of its dense cosine and its saturated BM25 score. Ordering is unchanged.
         """
         fused: dict[str, float] = {}
         ranks: dict[str, dict[str, int]] = {}
+        evidence: dict[str, float] = {}
+        # The hash fallback embedder carries no semantic signal -- its docstring
+        # says so -- and fusing it at full weight actively degrades a good
+        # lexical ranking: the own-damage grant was BM25 rank 4 for "loss or
+        # damage to the vehicle insured" and fell out of the hybrid top six,
+        # displaced by trigram noise. With a real embedder the weight is 1.0
+        # and nothing changes.
+        dense_weight = 1.0 if get_embedder().backend != "hash" else HASH_DENSE_WEIGHT
         for rank, record in enumerate(dense, start=1):
             cid = record["clause_id"]
-            fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank)
+            fused[cid] = fused.get(cid, 0.0) + dense_weight / (RRF_K + rank)
             ranks.setdefault(cid, {})["dense"] = rank
+            evidence[cid] = max(evidence.get(cid, 0.0), max(0.0, min(1.0, record.get("score", 0.0))))
         for rank, record in enumerate(lexical, start=1):
             cid = record["clause_id"]
             fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank)
             ranks.setdefault(cid, {})["lexical"] = rank
+            evidence[cid] = max(evidence.get(cid, 0.0), lexical_evidence(record.get("score", 0.0)))
 
         if not fused:
             return []
-        best = max(fused.values()) or 1.0
         ordered = sorted(fused.items(), key=lambda kv: -kv[1])[:top_k]
 
         lookup = {r["clause_id"]: r for r in dense}
         lookup.update({r["clause_id"]: r for r in lexical})
 
         hits: list[SearchHit] = []
-        for cid, score in ordered:
+        for cid, _rrf in ordered:
             record = lookup.get(cid) or self._records_by_id.get(cid)
             if record is None:
                 continue
-            hit = _as_hit(record, score / best)
+            hit = _as_hit(record, round(evidence.get(cid, 0.0), 4))
             hit.dense_rank = ranks.get(cid, {}).get("dense")
             hit.lexical_rank = ranks.get(cid, {}).get("lexical")
             hits.append(hit)
@@ -305,10 +400,12 @@ class ClauseIndex:
     # -- structural accessors -------------------------------------------------
 
     def get_clause(self, clause_id: str) -> SearchHit | None:
+        self._ensure_fresh()
         record = self._records_by_id.get(clause_id) or self.store.get(clause_id)
         return _as_hit(record, 1.0) if record else None
 
     def neighbours(self, clause_id: str, window: int = 1) -> list[SearchHit]:
+        self._ensure_fresh()
         try:
             position = self._ordered_ids.index(clause_id)
         except ValueError:
@@ -328,6 +425,7 @@ class ClauseIndex:
         then against the body (a clause *mentions* it). Heading matches sort
         first, which is what the caller almost always wants.
         """
+        self._ensure_fresh()
         needle = name.strip().lower().rstrip(".")
         if not needle:
             return []
@@ -344,6 +442,7 @@ class ClauseIndex:
 
     def quote_resolves(self, clause_id: str, quote: str) -> bool:
         """Does this quote actually appear in this clause? (A3)"""
+        self._ensure_fresh()
         record = self._records_by_id.get(clause_id) or self.store.get(clause_id)
         if not record:
             return False

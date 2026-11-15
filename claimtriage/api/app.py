@@ -61,7 +61,7 @@ from ..correlation import (
     set_correlation_id,
     set_run_id,
 )
-from ..guardrails import check_fnol
+from ..guardrails import check_fnol, welfare_concern
 from ..logging_setup import configure_logging, get_logger
 from ..store import (
     backend_healthy,
@@ -90,6 +90,20 @@ from ..telemetry import (
 )
 from ..validation import guardrail_quarantine, validate_submission
 
+# Imported here, at module load, and never inside a request handler. An earlier
+# version imported these lazily in each handler; the web client requests
+# /health/ready and /health/corpus in parallel on page load, FastAPI runs the two
+# sync handlers on two threads, and the two threads imported the retrieval
+# modules in opposite orders. Python's import system detected the cycle and
+# raised _DeadlockError in both, so the first page load after every restart got
+# two 500s and showed "service unreachable".
+from ..correlation import get_correlation_id
+from ..llm import get_client
+from ..prompts import get_registry
+from ..retrieval.embeddings import active_backend
+from ..retrieval.index import get_index, read_index_meta
+from ..worker.executor import process_job
+
 log = get_logger("api")
 SERVICE_ROLE = "api"
 
@@ -100,6 +114,13 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_tracing(SERVICE_ROLE, app)
     mark_service_up(SERVICE_ROLE)
+    # Build the index before the first request rather than during it, so the
+    # first readiness probe is fast and no two requests race to construct it.
+    try:
+        index = get_index()
+        log.info("api_index_ready", chunks=index.size)
+    except Exception as exc:
+        log.warning("api_index_unavailable_at_startup", error=str(exc)[:300])
     log.info(
         "api_started",
         version=__version__,
@@ -186,8 +207,8 @@ async def submit_claim(
     background: BackgroundTasks,
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
     x_callback_url: str | None = Header(default=None, alias="X-Callback-Url"),
+    x_bypass_cache: str | None = Header(default=None, alias="X-Bypass-Cache"),
 ) -> Any:
-    from ..correlation import get_correlation_id
 
     settings = get_settings()
     correlation_id = get_correlation_id()
@@ -311,6 +332,21 @@ async def submit_claim(
     claim = fnol.model_dump(mode="json", by_alias=False)
     warnings = [w.model_dump(mode="json") for w in outcome.warnings]
     guardrail_flags = [f.to_dict() for f in guard.findings]
+    if welfare_concern(guard):
+        # Not a rejection -- the claim is triaged as normal. The warning travels
+        # with the run, and the routing stage turns it into an urgent hand-off
+        # to a person who can contact the customer.
+        warnings.append(
+            ValidationIssue(
+                field="incident.description",
+                rule="welfare_concern",
+                message=(
+                    "the description contains language suggesting the customer may "
+                    "be in distress; a handler should contact them directly"
+                ),
+                severity="warning",
+            ).model_dump(mode="json")
+        )
 
     document = {
         "run_id": run_id,
@@ -327,6 +363,10 @@ async def submit_claim(
         "warnings": warnings,
         "guardrail_flags": guardrail_flags,
         "callback_url": x_callback_url,
+        # Lets a caller force a full run for an incident the cache has seen --
+        # used by the web client to show a cached answer and a live run side by
+        # side, which is the D7 effect made visible.
+        "bypass_cache": (x_bypass_cache or "").strip().lower() in {"1", "true", "yes"},
         "result": None,
     }
     save_run(run_id, document)
@@ -370,7 +410,6 @@ async def submit_claim(
 
 
 def _execute_inline(job: dict[str, Any]) -> None:
-    from ..worker.executor import process_job
 
     process_job(job)
 
@@ -394,6 +433,7 @@ def run_status(run_id: str) -> Any:
         run_id=run_id,
         correlation_id=document.get("correlation_id", "-"),
         status=RunStatus(document["status"]),
+        live_steps=document.get("live_steps") or [],
         current_step=document.get("current_step"),
         steps_completed=int(document.get("steps_completed") or 0),
         queued_at=queued_at,
@@ -508,7 +548,6 @@ def get_quarantine(quarantine_id: str) -> Any:
 
 @app.post("/v1/feedback", status_code=201, tags=["quality"])
 def submit_feedback(feedback: FeedbackRequest) -> Any:
-    from ..correlation import get_correlation_id
 
     document = load_run(feedback.run_id)
     if not document:
@@ -592,7 +631,6 @@ def feedback_summary(limit: int = 500) -> Any:
 @app.get("/v1/corpus/clause/{clause_id}", tags=["corpus"])
 def get_clause(clause_id: str) -> Any:
     """Resolve a citation. The web client links every citation here."""
-    from ..retrieval.index import get_index
 
     hit = get_index().get_clause(clause_id)
     if not hit:
@@ -647,8 +685,6 @@ def health() -> Any:
 @app.get("/health/ready", tags=["observability"])
 def readiness(response: Response) -> Any:
     """Readiness. Depends on everything this process needs to serve a request."""
-    from ..retrieval.embeddings import active_backend
-    from ..retrieval.index import get_index
 
     settings = get_settings()
     checks: dict[str, Any] = {}
@@ -660,19 +696,37 @@ def readiness(response: Response) -> Any:
             "ok": index.size > 0,
             "chunks": index.size,
             "backend": type(index.store).__name__,
-            "embeddings": active_backend(),
+            # Before the first search the embedder has not been built yet; say
+            # what is configured rather than reporting "uninitialised".
+            "embeddings": (
+                active_backend()
+                if active_backend() != "uninitialised"
+                else f"{settings.embedding_backend} (loads on first search)"
+            ),
         }
     except Exception as exc:
         checks["corpus_index"] = {"ok": False, "error": str(exc)[:200]}
 
     try:
-        from ..prompts import get_registry
 
         checks["prompts"] = {"ok": True, "set": settings.prompt_set, "sets": get_registry().sets}
     except Exception as exc:
         checks["prompts"] = {"ok": False, "error": str(exc)[:200]}
 
     checks["queue"] = {"ok": True, "depth": current_queue_depth(), "mode": settings.execution_mode}
+
+    # Which model is answering. Without this a run against the stub -- whose
+    # "reasoning" is canned text -- is indistinguishable from a real one, and
+    # the web client cannot warn the person reading it.
+    checks["model"] = {
+        "ok": True,
+        "provider": settings.llm_provider,
+        "model": settings.llm_model or ("stub-1" if settings.llm_provider == "stub" else ""),
+        "is_stub": settings.llm_provider == "stub"
+        or "llm-stub" in (settings.llm_base_url or "")
+        or "9009" in (settings.llm_base_url or ""),
+        "prompt_set": settings.prompt_set,
+    }
 
     ready = all(c.get("ok") for c in checks.values())
     if not ready:
@@ -683,7 +737,6 @@ def readiness(response: Response) -> Any:
 @app.get("/health/corpus", tags=["observability"])
 def corpus_health() -> Any:
     """Data freshness (D2): when the index was built, from what, how big."""
-    from ..retrieval.index import get_index, read_index_meta
 
     meta = read_index_meta()
     index = get_index()
@@ -732,7 +785,6 @@ def circuit_control(action: str) -> Any:
     admin port. Both are behind an explicitly named admin path so that it is
     obvious this is not a production endpoint.
     """
-    from ..llm import get_client
 
     client = get_client()
     if action == "open":

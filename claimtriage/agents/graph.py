@@ -88,6 +88,7 @@ from ..telemetry import (
     span,
     verification_outcome,
 )
+from . import coerce
 from . import signals as signal_rules
 from .tools import (
     ToolBudgetExceeded,
@@ -165,8 +166,13 @@ class AgentRunner:
         client: LLMClient | None = None,
         index=None,
         prompt_set: str | None = None,
+        on_step=None,
     ) -> None:
         self.settings = get_settings()
+        #: Called with each step record as it completes. The worker uses it to
+        #: publish live progress; a 15-second run that reports nothing until it
+        #: finishes looks, to the person waiting, exactly like a hung one.
+        self.on_step = on_step
         self.run_id = run_id
         self.correlation_id = correlation_id
         self.claim = claim
@@ -246,6 +252,11 @@ class AgentRunner:
             tokens=record["prompt_tokens"] + record["completion_tokens"],
             cost_usd=record["cost_usd"],
         )
+        if self.on_step is not None:
+            try:
+                self.on_step(record)
+            except Exception as exc:  # progress reporting must never fail a run
+                log.warning("on_step_callback_failed", error=str(exc)[:200])
         return record
 
     def _call_model(self, step: str, **variables: Any):
@@ -256,10 +267,40 @@ class AgentRunner:
 
     # -- context rendering ----------------------------------------------------
 
+    #: Minimum context slots per role before the rest is filled by score.
+    _ROLE_QUOTA = (("grant", 3), ("exclusion", 3), ("restriction", 3), ("condition", 2))
+
+    def _select_context(self, hits: list[SearchHit], limit: int) -> list[SearchHit]:
+        """Choose which passages the model sees, balanced by role.
+
+        Selecting purely by score let one kind of clause crowd out another: in
+        the section 4.1 run the named-clause lookups (fixed scores of 1.0 and
+        0.7) filled the slots and the own-damage grant fell out of the context
+        altogether. But the design rests on reading the grant *and* what
+        qualifies it together -- a grant on its own is not an answer, and nor is
+        an exclusion with nothing to exclude from. So each role gets a floor,
+        and only what is left is filled by score.
+        """
+        by_score = sorted(hits, key=lambda h: -h.score)
+        chosen: list[SearchHit] = []
+        seen: set[str] = set()
+        for role, quota in self._ROLE_QUOTA:
+            for hit in [h for h in by_score if h.role == role][:quota]:
+                if len(chosen) < limit and hit.clause_id not in seen:
+                    chosen.append(hit)
+                    seen.add(hit.clause_id)
+        for hit in by_score:
+            if len(chosen) >= limit:
+                break
+            if hit.clause_id not in seen:
+                chosen.append(hit)
+                seen.add(hit.clause_id)
+        return chosen
+
     def _format_context(self, hits: list[SearchHit], limit: int = 10) -> str:
         if not hits:
             return "(no passages retrieved)"
-        ordered = sorted(hits, key=lambda h: -h.score)[:limit]
+        ordered = self._select_context(hits, limit)
         blocks = []
         for hit in ordered:
             blocks.append(
@@ -393,7 +434,7 @@ def _node_intake(runner: AgentRunner, state: TriageState) -> TriageState:
             description=incident.get("description", ""),
             warnings=json.dumps(state.get("warnings") or [], default=str),
         )
-        payload = parse_json_object(completion.text)
+        payload = coerce.classification(parse_json_object(completion.text))
     except CircuitOpen as exc:
         step = runner._record(
             agent=INTAKE_ANALYST, step="intake_classification", started=started,
@@ -527,7 +568,7 @@ def _node_plan_modifiers(runner: AgentRunner, state: TriageState) -> TriageState
             context=runner._format_context(list(runner.ctx.retrieved.values())),
             prior_queries=json.dumps(runner.ctx.queries_issued, default=str),
         )
-        plan = parse_json_object(completion.text)
+        plan = coerce.plan(parse_json_object(completion.text))
     except CircuitOpen as exc:
         step = runner._record(
             agent=COVERAGE_ANALYST, step="plan_modifiers", started=started,
@@ -671,7 +712,7 @@ def _node_analyse(runner: AgentRunner, state: TriageState) -> TriageState:
             context=runner._format_context(passages, limit=12),
             flags=json.dumps(flags, default=str),
         )
-        draft = parse_json_object(completion.text)
+        draft = coerce.draft(parse_json_object(completion.text))
     except CircuitOpen as exc:
         step = runner._record(
             agent=COVERAGE_ANALYST, step="coverage_analysis", started=started,
@@ -763,7 +804,7 @@ def _node_verify(runner: AgentRunner, state: TriageState) -> TriageState:
             ),
             context=runner._format_context(list(runner.ctx.retrieved.values()), limit=12),
         )
-        model_verdict = parse_json_object(completion.text)
+        model_verdict = coerce.verdict(parse_json_object(completion.text))
         prompt_version = prompt.version_id
         usage = completion.usage
     except (CircuitOpen, ProviderError, ValueError) as exc:
@@ -872,7 +913,7 @@ def _node_route(runner: AgentRunner, state: TriageState) -> TriageState:
             claim_summary=runner._claim_summary(),
             signals=json.dumps(computed.to_dict(), indent=2, default=str),
         )
-        choice = parse_json_object(completion.text)
+        choice = coerce.routing(parse_json_object(completion.text))
         prompt_version, usage = prompt.version_id, completion.usage
     except (CircuitOpen, ProviderError, ValueError) as exc:
         # Degradation: route on the deterministic signals alone. This is a
@@ -908,10 +949,28 @@ def _node_route(runner: AgentRunner, state: TriageState) -> TriageState:
         "signals": computed.to_dict(),
     }
     if overrides:
+        # Lead with the rules. The model's reason argued for the queue it chose,
+        # so printed first as plain fact it contradicted the decision beside it:
+        # "Low value, drivable vehicle..." over a Rs 2.6 lakh undrivable car
+        # routed to a surveyor for being high-value and undrivable.
+        model_reason = decision["reason"].strip()
         decision["reason"] = (
-            f"{decision['reason']} Raised to {final_queue.value} by mandatory rules: "
+            f"Raised from {chosen.value} to {final_queue.value} by mandatory rules: "
             f"{', '.join(overrides)}."
-        ).strip()
+            + (f" The routing model had proposed {chosen.value}: \"{model_reason}\"" if model_reason else "")
+        )
+
+    # A welfare flag from the input guardrail overrides priority, not queue: the
+    # claim still goes where the policy says, but a person contacts the
+    # customer first, and the reason says so in the first words they read.
+    if any(w.get("rule") == "welfare_concern" for w in (state.get("warnings") or [])):
+        decision["priority"] = "urgent"
+        decision["target_first_touch_hours"] = 1
+        decision["triggered_rules"] = sorted(set(decision["triggered_rules"]) | {"welfare_concern"})
+        decision["reason"] = (
+            "Contact the customer first: their description suggests they may be in "
+            "distress. " + decision["reason"]
+        )
 
     versions = dict(state.get("prompt_versions") or {})
     if prompt_version:

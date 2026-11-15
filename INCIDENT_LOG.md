@@ -4,7 +4,7 @@ Real failures during development. Each entry records what the symptom was, what
 it actually turned out to be, what it cost, and what changed so it cannot recur
 silently. They are here in the order they were found.
 
-The common thread in six of the eight is worth stating up front: **every one of
+The common thread in eight of the eleven is worth stating up front: **every one of
 them produced a plausible-looking result rather than an error.** A heading swallowed
 into a paragraph, a guardrail quietly rewriting a quote, a load test submitting
 nothing, a cache inflating its own cost report — all of them would have been
@@ -455,6 +455,124 @@ open.
 Twenty minutes, and it was shipped to the user before being caught — the second
 time in a row that a web-client change went out unexercised. That is what the
 checker is for, and it is the guard INC-007 said was missing and did not add.
+
+---
+
+## INC-009 — The reference case cited a clause about EMI instalments as its grant
+
+**When:** the bug sweep ([docs/bug-sweep.md](docs/bug-sweep.md))
+**Severity:** high. This is the case the system is built around, and its evidence was wrong.
+**Detected by:** reading the browser test's screenshot of the section 4.1 case
+
+### Symptom
+
+The food-delivery claim came back *likely not covered, investigate*, which is
+correct. Its exclusion and restriction cards were correct too. Its GRANT card,
+the clause that gives the cover the other two take away, quoted the
+prospectus: "Insured has an option to choose the number of EMI…". The verdict
+looked right, so nobody read the evidence.
+
+### Cause
+
+Five defects, each harmless alone:
+
+1. **Chunking shredded the grant.** Each roman item of Section I (i. by fire,
+   ii. by burglary…) was promoted to its own section and nested under the one
+   before. The lead-in, "The Company will indemnify the insured against loss or
+   damage", sat alone in a short chunk.
+2. **"means" tagged it a definition.** "By accidental external means" matched
+   the definition rule.
+3. **Page footers.** "Page 3 of 8" is unique on every page, so the
+   repetition test never stripped it.
+4. **The fused ranking depended on `top_k`.** Each ranker contributed
+   `top_k × 3` candidates. At k=6 the grant fell just outside the dense pool,
+   lost its dense vote and dropped out of the results. At k=8 it ranked third.
+5. **Context crowding.** The named-clause lookups score 1.0 and 0.7 by
+   construction and filled every context slot.
+
+### Fix
+
+The heading stack keeps sibling items inside their clause. The definition rule
+needs "means the/any/a…". Page numbers are stripped on every document.
+Candidate pools are a fixed depth of 50, and the hash embedder is
+down-weighted in fusion. Each role gets a floor of context slots. The index
+went from 381 chunks to 309, and the grant is one whole clause. There are
+regression tests for each of the five, including one that pins the candidate
+depth, because the synthetic corpus is too small for the ordering test to
+catch a regression.
+
+### Cost
+
+Most of the time went on cause 4. The grant ranked fine in every direct
+query, because those used k=8. The dependence on `top_k` showed up only
+when the same query was compared at two sizes.
+
+---
+
+## INC-010 — "Service unreachable" on first load
+
+**When:** the first run of the browser test
+**Severity:** medium. The page opened to an error state.
+**Detected by:** `scripts/ui_e2e.py`. No other test loads the page while the server is cold.
+
+### Symptom
+
+Opened right after start-up, the page said the service was unreachable. A
+refresh fixed it.
+
+### Cause
+
+The page fires its readiness check and its first requests in parallel. Several
+endpoints imported modules lazily inside the function body. Two concurrent
+first imports of the same module raised `_DeadlockError` from Python's import
+lock, the request failed, and the page read the failure as the service being down.
+
+### Fix
+
+Every import in `api/app.py` moved to module level. The lifespan warms the
+index before the first request. The page retries readiness up to five times
+before declaring the service down.
+
+---
+
+## INC-011 — The result page contradicted itself
+
+**When:** the bug sweep, reading the screenshots
+**Severity:** medium. Each sentence was defensible; together they made no sense.
+**Detected by:** a person reading the distress-scenario screenshot. Every assertion passed.
+
+### Symptom
+
+A ₹2.6 lakh claim on an undrivable car showed: "Low value, drivable vehicle, no
+third party and no injuries. Raised to surveyor_assignment by mandatory rules:
+vehicle_undrivable, high_value." Below that, a card badged EXCLUSION ("takes
+cover away") quoted "This Policy and the Schedule shall be read together". It
+sat under a LIKELY COVERED stamp.
+
+### Cause
+
+- When the rules overruled the routing model, its reason was still printed
+  first, as fact. The stub's reason was a canned sentence asserting facts it
+  never read.
+- Roles were matched against the whole heading path, so a CONDITIONS
+  sub-section inherited "exclusion" from its chapter title, "Exception,
+  Condition & Deductible".
+- The stub quoted each clause's first words rather than the sentence that
+  carries its role, and for a covered position it cited an exclusion.
+
+### Fix
+
+An override now leads with the decision ("Raised from fast_track to
+surveyor_assignment by mandatory rules: …"), then shows the model's proposal
+labelled as a proposal. Roles take the nearest evidence first: own heading,
+then text, then ancestors. The stub quotes the role-bearing sentence and cites
+grant plus conditions for a covered position. A test covers each.
+
+### Cost
+
+What matters is that only a person reading the output found it. `ui_e2e.py` asserts the verdict, the end state and role badges, not
+whether the page makes sense. The screenshots exist so that someone can read
+them.
 
 ---
 

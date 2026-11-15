@@ -82,6 +82,31 @@ def process_job(job: dict[str, Any]) -> dict[str, Any] | None:
                 "pid": os.getpid(), "version": __version__},
     )
 
+    live: list[dict[str, Any]] = []
+
+    def publish_step(record: dict[str, Any]) -> None:
+        """Make each finished step visible on GET /v1/runs/{id} straight away.
+
+        Only the fields a progress display needs -- the full record, with
+        clause ids and token counts, arrives with the result.
+        """
+        live.append(
+            {
+                "index": record["index"],
+                "agent": record["agent"],
+                "step": record["step"],
+                "outcome": record["outcome"],
+                "duration_ms": record["duration_ms"],
+                "tool_query": (record.get("tool_query") or "")[:200],
+            }
+        )
+        patch_run(
+            run_id,
+            current_step=record["step"],
+            steps_completed=len(live),
+            live_steps=list(live),
+        )
+
     with span("worker.job", **{"run.id": run_id, "run.correlation_id": correlation_id}):
         result = execute_run(
             run_id=run_id,
@@ -89,6 +114,8 @@ def process_job(job: dict[str, Any]) -> dict[str, Any] | None:
             claim=document["claim"],
             warnings=document.get("warnings") or [],
             submitted_at=datetime.fromisoformat(queued_at) if queued_at else started_at,
+            on_step=publish_step,
+            use_cache=False if document.get("bypass_cache") else None,
         )
 
     payload = result.model_dump(mode="json")

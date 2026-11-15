@@ -101,7 +101,7 @@ is high; the `chroma` container's CPU (on the cAdvisor panel) is saturated.
 
 **What it means:** one index server is serving three workers' searches. Raise
 `RETRIEVAL_TOP_K` down, lean on the retrieval cache, or give Chroma more CPU. At
-381 chunks this is very unlikely; at 50,000 it would be the first thing to go.
+309 chunks this is very unlikely; at 50,000 it would be the first thing to go.
 
 ### 3. Redis
 

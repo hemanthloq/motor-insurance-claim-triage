@@ -192,3 +192,27 @@ def test_malformed_body_does_not_raise():
         outcome = _validate(payload)
         assert not outcome.ok
         assert outcome.quarantine is not None
+
+
+@pytest.mark.parametrize("plate", ["22BH1234AA", "22 BH 1234 A", "21-BH-0001-ZZ"])
+def test_bharat_series_plates_are_accepted(valid_fnol, plate):
+    """BH plates start with digits, so the state-series pattern rejected all of them."""
+    payload = copy.deepcopy(valid_fnol)
+    payload["vehicle"]["registration_number"] = plate
+    outcome = _validate(payload)
+    assert outcome.ok, [i.model_dump() for i in outcome.errors]
+
+
+@pytest.mark.parametrize("phone", ["+91-98450-12345", "(080) 4567 8901", "98450.12345", "+91 98450 12345"])
+def test_phone_numbers_with_separators_are_accepted(valid_fnol, phone):
+    payload = copy.deepcopy(valid_fnol)
+    payload["reporter_phone"] = phone
+    outcome = _validate(payload)
+    assert outcome.ok, [i.model_dump() for i in outcome.errors]
+    assert outcome.fnol.reporter_phone.lstrip("+").isdigit()
+
+
+def test_phone_without_enough_digits_is_still_rejected(valid_fnol):
+    payload = copy.deepcopy(valid_fnol)
+    payload["reporter_phone"] = "(080) 45-67"
+    assert not _validate(payload).ok

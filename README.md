@@ -71,7 +71,10 @@ Then, in a second terminal:
 ```bash
 bash scripts/demo.sh    http://localhost:8080   # the section 4.1 case, end to end
 bash scripts/smoke.sh   http://localhost:8080   # PASS/FAIL for all ten demo items
-.venv/Scripts/python.exe -m pytest              # 167 tests, ~4 seconds
+.venv/Scripts/python.exe -m pytest              # 227 tests, ~10 seconds
+.venv/Scripts/python.exe scripts/sweep.py  --api http://localhost:8080   # 47 live cases
+.venv/Scripts/python.exe scripts/ui_e2e.py --api http://localhost:8080 --shots shots/
+                                                # clicks every scenario in Chrome/Edge
 ```
 
 **What this path does and does not show.** Every endpoint, contract, validation
@@ -179,6 +182,52 @@ explicitly. See [docs/stub-provider.md](docs/stub-provider.md).
 
 ## What you should see
 
+### In the browser
+
+Open <http://localhost:8080>. The page is a claims-officer workspace built
+around one idea: **show what needs a person, keep everything else one click
+away.**
+
+- **Needs your attention** (top). Only the claims that genuinely need a person:
+  urgent or high priority, past their first-touch SLA, close to it, or handed
+  over by the system. Most pressing first (overdue, urgent, handed-over,
+  high, approaching). Each card shows the claim, why it needs attention, and
+  the time left. The SLA clock is `routing.target_first_touch_hours` counted
+  from when triage completed. Nothing is invented: a claim that has not been
+  analysed has no priority and is not listed. With nothing triaged, the
+  section says so rather than claiming "all caught up".
+- **Claims** (button, top left). Opens a drawer with every claim: search,
+  filters (All, Pending review, Under investigation, Completed, Escalated),
+  and each claim's ID, category, status and priority. Choosing one loads it
+  and closes the drawer. *Triage the rest* runs every unanalysed sample claim
+  through the real API so the attention list has real results to work from.
+- **The claim** (left): ID, type, date and status, a four-stage progress line
+  (Intake → Gate Check → Analysis → Recommendation), the driver, vehicle,
+  values, declared use and the customer's own words, the gate's Risk Check,
+  and an expandable *Claim details*. *Edit* opens the fields; *Run analysis*
+  submits them. A claim that has not been analysed says so and prompts you.
+- **Evaluation & Action** (right). The recommendation ("Likely not covered ·
+  Route to Investigation"), a **Verified · 3/3 citations** badge with support
+  and confidence, the **key question** to settle ("Was the delivery carried out
+  for reward or as a personal favour?"), and the action card (priority, first
+  touch, reason). *Policy Evidence & Verification* is collapsed; open it for the
+  grant, the exclusion it meets (*but*) and the restriction that exclusion
+  refers to, each with the exact quote highlighted. A compact footer row gives
+  time, steps, lookups and tokens, with the two decision buttons below it,
+  pinned to the bottom of the window so they never scroll out of reach.
+- **Agent activity**. Eight steps under the agent that owns each, lit live as
+  they finish, with the activity log and *Technical trace* collapsed.
+
+Accepting or disagreeing records the officer's decision against the run; the
+claim then leaves the attention list, and the queue survives a page reload.
+*Circuit* in the header is the circuit breaker around the model: open it to see
+a run hand itself to a human. The moon icon switches to the dark theme. On a
+phone the claims list is a full-height drawer and the evaluation sits directly
+under the claim. When the model is the stub, a small amber tag says the
+reasoning text is canned.
+
+### From the command line
+
 A valid claim, submitted from the command line:
 
 ```bash
@@ -208,7 +257,7 @@ submitting the section 4.1 reference case to http://localhost:8080
       CHAPTER 4 - Limitations as to Use  (page 19, restriction)
       "The Policy covers use of the vehicle for any purpose other than: Hire or
        Reward, Carriage of goods (other than samples of personal luggage) ..."
-      il_private_car_package_wording::chapter-4-limitations-as-to-use::0151
+      il_private_car_package_wording::chapter-4-limitations-as-to-use::0132
     ...
 
   steps 7  tool calls 6  tokens 15390  cost USD 0.0  12.4s
@@ -347,7 +396,7 @@ working, but it is **not** semantic search, and `/health/ready` says which
 backend is live so it can never be mistaken for working:
 
 ```json
-{ "corpus_index": { "ok": true, "chunks": 381, "embeddings": "hash" } }
+{ "corpus_index": { "ok": true, "chunks": 309, "embeddings": "hash" } }
 ```
 
 ---
@@ -524,7 +573,7 @@ ops/                prometheus, grafana, nginx
 loadtest/           the Locust file
 scripts/            demo.sh, smoke.sh, dev.env
 docs/               see below
-tests/              167 tests
+tests/              227 tests
 ```
 
 ---
@@ -549,6 +598,7 @@ tests/              167 tests
 | [docs/cost.md](docs/cost.md) | tokens and spend per run and per 100 runs, largest driver |
 | [docs/stub-provider.md](docs/stub-provider.md) | what the stub is for and what it cannot tell you |
 | [docs/testing.md](docs/testing.md) | what the tests cover and what they deliberately do not |
+| [docs/bug-sweep.md](docs/bug-sweep.md) | the post-completion bug hunt: live sweep, browser test, what they found |
 | [docs/requirements.md](docs/requirements.md) | all 22 requirements, with status and where each is implemented |
 
 ---
@@ -596,7 +646,7 @@ is in [docs/requirements.md](docs/requirements.md); the honest summary:
 - **`docker compose up` has not been run by the author.** Docker is not installed
   on the development machine this was built on. Every service, Dockerfile stage
   and compose dependency is written and reviewed, and the entire Python system is
-  verified end to end outside Docker — 167 tests, the full HTTP surface, the
+  verified end to end outside Docker — 227 tests, a 47-case live sweep, an 11-check browser test, the full HTTP surface, the
   agent graph, the circuit breaker, the load test and the evaluation harness all
   run and are reported here with real numbers. But the container build itself is
   unverified, and that is the first thing to check. See

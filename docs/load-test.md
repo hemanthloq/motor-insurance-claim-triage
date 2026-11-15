@@ -117,7 +117,7 @@ to hit.
 latency** (280,611 vs 295,400 tokens on unique claims; p95 2.380 vs 2.398 s,
 inside the noise). That is a less flattering result than "caching helps", and it
 is the one we measured. The reason is that both the embedder and the index are
-*local*: a hash embedding is microseconds and a numpy search over 381 vectors is
+*local*: a hash embedding is microseconds and a numpy search over ~300 vectors is
 milliseconds, so there is very little to save. With `sentence_transformers`
 embeddings and Chroma over a network hop, the embedding cache should matter more —
 that is the measurement to retake in containers.

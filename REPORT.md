@@ -494,9 +494,21 @@ five by a factor of six. Fixed by tracking `tokens_per_step` and falling back to
 it. The corrected answer pointed at a real 25% saving; the wrong one pointed at
 nothing.
 
+### The reference case cited the wrong grant (bug sweep)
+
+A deliberate bug sweep after completion, using a 47-case live sweep and a
+browser test that clicks every scenario, found that the section 4.1 case
+reached the right position with the wrong evidence. Its GRANT card quoted a
+prospectus line about EMI instalments. Five defects stacked to cause it:
+chunking shredded the grant, "means" tagged it a definition, page footers
+leaked into chunks, the fused ranking depended on `top_k`, and named-clause
+lookups crowded it out of the context. Reading the screenshots then found a
+result page that contradicted itself (INC-011). All are fixed and tested. See
+[docs/bug-sweep.md](docs/bug-sweep.md).
+
 ### The common thread
 
-Six of the eight incidents produced a **plausible-looking result rather than an
+Eight of the eleven incidents produced a **plausible-looking result rather than an
 error.** A heading swallowed into a paragraph, a guardrail quietly rewriting a
 quote, a load test submitting nothing valid, a cache inflating its own cost
 report — every one would have been read as a success by anyone looking at the
@@ -521,7 +533,7 @@ be found. Per-requirement status:
 
 | | |
 |---|---|
-| **`docker compose up` has never been run.** Docker is not installed on the development machine. Every service, stage, health check and dependency condition is written and reviewed; the entire Python system is verified outside Docker — 167 tests, the full HTTP surface, the agent graph, the circuit breaker, the load test, the evaluation harness. The container build itself is unverified and is the first thing to check. | A7, D3, demo 1 |
+| **`docker compose up` has never been run.** Docker is not installed on the development machine. Every service, stage, health check and dependency condition is written and reviewed; the entire Python system is verified outside Docker — 227 tests, a 47-case live sweep, an 11-check browser test, the full HTTP surface, the agent graph, the circuit breaker, the load test, the evaluation harness. The container build itself is unverified and is the first thing to check. | A7, D3, demo 1 |
 | **`--scale worker=3` not measured.** [docs/scaling.md](docs/scaling.md) gives the capacity model, the method, the predictions and a decision procedure for each candidate bottleneck, rather than a fabricated number. | A7, demo 9 |
 | **The L2 prompt comparison has not been run against a real model.** The harness is ready; the stub cannot read prompt text. | L2 |
 | **Every evaluation number is stub-derived** and flagged as such. | L3 |
@@ -559,16 +571,16 @@ In order:
 | Validation | 4 layers, 14 cross-field rules, quarantine with field-level errors |
 | Guardrail surfaces | 3 — input, tool, output |
 | Evaluation scenarios | 25, each with its supporting passage |
-| Tests | 167, ~4 s, no infrastructure needed |
+| Tests | 227, ~10 s, no infrastructure needed; plus a 47-case live API sweep and an 11-check browser test |
 | Incidents recorded | 8, all genuine |
 | Prompt sets | 2, versioned, content-hashed, recorded on every response |
-| Corpus | 2 documents, 46 + 8 pages, 381 chunks, 74.6 chunks/s, SHA-256-keyed idempotent ingestion |
+| Corpus | 2 documents, 46 + 8 pages, 309 chunks (381 when throughput was measured, before the INC-009 chunker fixes), 74.6 chunks/s, SHA-256-keyed idempotent ingestion |
 
 **Appendices**
 
 - [README.md](README.md) — how to run it
 - [RUNBOOK.md](RUNBOOK.md) — two failure modes in depth, eight shorter ones
-- [INCIDENT_LOG.md](INCIDENT_LOG.md) — six real incidents
+- [INCIDENT_LOG.md](INCIDENT_LOG.md) — eleven real incidents
 - [docs/](docs/) — architecture, agent topology, the 4.1 case, contracts,
   retrieval, evaluation, SLO, load test, scaling, cost, stub, testing,
   requirements

@@ -106,6 +106,10 @@ class FeedbackVerdict(str, Enum):
 # -----------------------------------------------------------------------------
 
 REGISTRATION_RE = re.compile(r"^[A-Z]{2}[ -]?\d{1,2}[ -]?[A-Z]{0,3}[ -]?\d{1,4}$")
+#: Bharat (BH) series, issued nationally since 2021: two-digit year, "BH", four
+#: digits, one or two letters -- "22 BH 1234 AA". It starts with digits, so the
+#: state-series pattern above rejected every one of them.
+BH_SERIES_RE = re.compile(r"^\d{2}[ -]?BH[ -]?\d{4}[ -]?[A-Z]{1,2}$")
 POLICY_RE = re.compile(r"^[A-Z0-9][A-Z0-9/\-]{5,39}$")
 PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
 PINCODE_RE = re.compile(r"^[1-9][0-9]{5}$")
@@ -133,9 +137,10 @@ class VehicleDetails(BaseModel):
     @classmethod
     def _registration_shape(cls, value: str) -> str:
         normalised = value.upper().strip()
-        if not REGISTRATION_RE.match(normalised):
+        if not (REGISTRATION_RE.match(normalised) or BH_SERIES_RE.match(normalised)):
             raise ValueError(
-                "registration_number must look like an Indian plate, e.g. KA01MJ2023"
+                "registration_number must look like an Indian plate, "
+                "e.g. KA01MJ2023 or 22BH1234AA"
             )
         return normalised.replace(" ", "").replace("-", "")
 
@@ -226,7 +231,7 @@ class FNOLRequest(BaseModel):
     date_of_loss: datetime
     reported_at: datetime
     channel: Channel
-    reporter_phone: str = Field(..., min_length=10, max_length=16)
+    reporter_phone: str = Field(..., min_length=10, max_length=24)  # before separators are stripped
     reporter_email: EmailStr | None = None
     vehicle: VehicleDetails
     driver: DriverDetails
@@ -245,7 +250,9 @@ class FNOLRequest(BaseModel):
     @field_validator("reporter_phone")
     @classmethod
     def _phone_shape(cls, value: str) -> str:
-        compact = value.replace(" ", "")
+        # People type phone numbers with separators: "+91-98450-12345",
+        # "(080) 4567 8901", "98450.12345". The digits are what matter.
+        compact = re.sub(r"[\s\-().]", "", value)
         if not PHONE_RE.match(compact):
             raise ValueError("reporter_phone must be 10-15 digits, optional leading +")
         return compact
@@ -495,6 +502,13 @@ class RunStatusResponse(BaseModel):
     elapsed_seconds: float = 0.0
     result_available: bool = False
     result_url: str
+    live_steps: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "Steps completed so far, published as each one finishes, so a caller "
+            "can show progress through a run that takes tens of seconds."
+        ),
+    )
 
 
 # -----------------------------------------------------------------------------

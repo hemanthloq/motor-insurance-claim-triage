@@ -1,7 +1,7 @@
 # Testing
 
 ```bash
-make test        # 167 tests, about 4 seconds
+make test        # 227 tests, about 10 seconds
 ```
 
 No infrastructure required: in-memory state backend, the deterministic `hash`
@@ -14,10 +14,10 @@ is listed at the end, rather than left implicit.
 
 | file | n | what it holds down |
 |---|---:|---|
-| `test_validation.py` | 29 | the ingestion boundary: all four layers, every cross-field rule, the quarantine record, and the invariant that a rejection never reports a started run |
-| `test_retrieval.py` | 22 | text normalisation, heading detection, the section tree, cross-reference extraction, hybrid search, named-clause resolution, quote resolution, single-document re-indexing |
-| `test_guardrails.py` | 35 | injection and toxicity detection, the false-positive list, the tool surface never rewriting text, unauthorised-output filtering |
-| `test_agent.py` | 28 | the graph topology and hand-off order, loop bounds, strategy escalation, citation resolution as a property of the result, every degradation path, the circuit breaker, the cache key |
+| `test_validation.py` | 37 | the ingestion boundary: all four layers, every cross-field rule, the quarantine record, and the invariant that a rejection never reports a started run |
+| `test_retrieval.py` | 39 | text normalisation, page-number stripping, heading detection, the section tree, roles from the nearest heading, fusion that does not depend on `top_k`, cross-reference extraction, hybrid search, named-clause resolution, quote resolution, single-document re-indexing |
+| `test_guardrails.py` | 58 | injection and toxicity detection, two-tier blocking, self-harm as a welfare flag, the false-positive list, the tool surface never rewriting text, unauthorised-output filtering |
+| `test_agent.py` | 40 | the graph topology and hand-off order, loop bounds, coercion of sloppy model output, role-balanced context, quotes that carry their role, rules overrides that read coherently, strategy escalation, citation resolution as a property of the result, every degradation path, the circuit breaker, the cache key |
 | `test_api.py` | 28 | every endpoint, the 202-then-poll contract, idempotency, all three rejection stages, the full trace, feedback, rate limiting, admin |
 | `test_eval.py` | 25 | the dataset's own shape, every metric primitive, the metric definitions, the harness's stub refusal, report comparison direction |
 
@@ -107,13 +107,40 @@ position on the section 4.1 case for the right reason — only that it finds and
 cites the right clauses and does not fast-track it. The evaluation set is the
 instrument for the rest, and it needs a provider.
 
-**The web client — partially covered now.** `scripts/check-web-client.js`
-executes the page's script against a stubbed DOM and asserts three things: the
-script runs to completion, a submit handler is attached, and `buildFNOL()`
-produces a contract-valid body. It catches both defects that actually shipped
-(INC-007, INC-008) and is verified against each. What it still cannot do is
-render: it will not tell you the page looks right, only that it is not dead.
-It needs node, and `smoke.sh` skips it with a notice when node is absent.
+**The web client: covered in a real browser, but not by `pytest`.** There are
+two layers:
+
+- `scripts/check-web-client.js` runs the page's script against a stubbed DOM.
+  It asserts that the script runs to completion **and so does its async
+  start-up** (a throw after the first `await` is an unhandled rejection no
+  synchronous check would see), that the submit, drawer and delegated click
+  handlers are attached, that all ten sample claims build contract-valid bodies,
+  and that the claims list and attention section render. It needs only node
+  and no server. It catches both defects that shipped (INC-007, INC-008), and
+  a throw after an `await` has been shown to be caught too.
+- `scripts/ui_e2e.py` drives the installed Chrome or Edge through Playwright
+  against a running server. It clicks every sample claim and the circuit
+  switch, asserting the recommendation, the pipeline's end state, a role badge
+  on every citation, that the policy evidence is collapsed by default and the
+  decision buttons are on screen, and that the page never scrolls sideways or
+  spills a panel past its card. It also drives the officer's workflow in a
+  clean browser: the Claims drawer (open, search, filter, select, close by
+  button, scrim and Escape), an honest empty attention section, triage filling
+  it from real results with the most pressing claim first and routine claims
+  absent, opening a claim from a card, expanding the evidence without losing
+  the selection, accepting (which removes it from the list), and the queue
+  surviving a reload. It saves a full-page screenshot of each state (`--shots`,
+  `--theme dark`, `--width 420`). It found INC-010.
+
+Neither can tell you whether the page *makes sense*. INC-011 passed every
+assertion and was found by reading the screenshots.
+
+**The live API sweep.** `scripts/sweep.py` sends 47 cases to a running server:
+valid claims, benign text that looks alarming, attacks, malformed bodies and
+edge values. It adds multi-request checks for cache replay, duplicate
+references, live progress and model readiness. It is the complement to
+`smoke.sh`'s ten demonstration paths. See [bug-sweep.md](bug-sweep.md) for what
+it and the browser test found.
 
 **OpenTelemetry export.** `setup_tracing` is a no-op without a collector
 endpoint, and the tests run with `TRACING_ENABLED=false`. Spans are created in

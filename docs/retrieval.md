@@ -154,7 +154,7 @@ downloaded — an air-gapped lab machine, a first-run network failure, CI. It is
 backend is live so it can never be mistaken for working:
 
 ```json
-{ "corpus_index": { "ok": true, "chunks": 381, "embeddings": "hash" } }
+{ "corpus_index": { "ok": true, "chunks": 309, "embeddings": "hash" } }
 ```
 
 Every number in this repository's own testing was taken with the `hash` backend,
@@ -215,7 +215,7 @@ Every ingest run records, to Redis *and* to `index_meta.json` beside the vectors
   "built_at": "2026-10-14T09:12:03Z",
   "documents": [ { "document_id": "...", "content_sha256": "...", "pages": 46,
                    "chunks": 353, "roles": {...} } ],
-  "chunks": 381,
+  "chunks": 309,
   "embedding_signature": "sentence_transformers:all-MiniLM-L6-v2:384",
   "build_duration_seconds": 5.1,
   "chunks_per_second": 74.57

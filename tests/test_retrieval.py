@@ -65,6 +65,17 @@ def test_running_headers_are_stripped():
     assert all(f"body of page {p.number}" in p.text for p in cleaned)
 
 
+@pytest.mark.parametrize("pages", [3, 10])
+def test_page_numbers_are_stripped_however_short_the_document(pages):
+    """'Page 3 of 8' is different on every page, so the repetition test never
+    caught it, and it was glued onto the front of a chunk the agent then cited
+    as a grant. A short document skipped the stripping altogether."""
+    raw = [LoadedPage(number=n, text=f"body of page {n}\nPage {n} of {pages}\n{n}/{pages}")
+           for n in range(1, pages + 1)]
+    cleaned = strip_running_lines(raw)
+    assert [p.text for p in cleaned] == [f"body of page {n}" for n in range(1, pages + 1)]
+
+
 def test_token_estimate_is_monotonic():
     assert estimate_tokens("a") < estimate_tokens("a" * 100) < estimate_tokens("a" * 1000)
 
@@ -125,6 +136,63 @@ def test_embed_text_carries_the_section_path(chunks):
     assert chunk.text in chunk.embed_text
 
 
+GRANT_WITH_ITEMS = """SECTION I. LOSS OF OR DAMAGE TO THE VEHICLE INSURED
+The Company will indemnify the insured against loss or damage to the vehicle insured hereunder and/or its accessories whilst thereon
+i. by fire explosion self ignition or lightning;
+ii. by burglary housebreaking or theft;
+iii. by riot and strike;
+iv. by accidental external means, including where (a) the vehicle is in transit by road rail or inland waterway, or (b) it is being driven by an authorised driver whose licence is current at the time;
+SECTION II. LIABILITY TO THIRD PARTIES
+The Company will indemnify the insured in the event of an accident.
+"""
+
+
+@pytest.fixture(scope="module")
+def grant_chunks(tmp_path_factory):
+    path = tmp_path_factory.mktemp("grant") / "grant.txt"
+    path.write_text(GRANT_WITH_ITEMS, encoding="utf-8")
+    return chunk_document(load(path, document_id="g", title="Grant"))
+
+
+def test_a_grant_and_its_numbered_perils_stay_one_clause(grant_chunks):
+    """The own-damage grant used to be shredded: each roman item became its own
+    'section', so the lead-in ("will indemnify ... against loss or damage") sat
+    in one chunk and the perils it covers in four others, each nested under the
+    one before (i > ii > iii). Neither half answers a coverage question."""
+    section_i = [c for c in grant_chunks if c.section_path.startswith("SECTION I.")]
+    assert len(section_i) == 1, [c.section_path for c in grant_chunks]
+    text = section_i[0].text
+    assert "will indemnify" in text
+    for marker in ("i. by fire", "ii. by burglary", "iii. by riot", "iv. by accidental"):
+        assert marker in text
+    assert section_i[0].role == "grant"
+
+
+def test_lettered_markers_stay_inline(grant_chunks):
+    assert not any(c.section_path.endswith(("(a)", "(b)")) for c in grant_chunks)
+    assert any("(a) the vehicle is in transit" in c.text for c in grant_chunks)
+
+
+def test_the_next_section_is_a_sibling_not_a_child(grant_chunks):
+    section_ii = [c for c in grant_chunks if "LIABILITY TO THIRD PARTIES" in c.section_path]
+    assert section_ii and all(c.section_path.startswith("SECTION II.") for c in section_ii)
+
+
+@pytest.mark.parametrize("text, is_definition", [
+    ("Insured Declared Value shall mean the value fixed at the commencement of the policy.", True),
+    ("Accessories means any part fitted to the vehicle by the manufacturer.", True),
+    ("For the purpose of this policy a private car is a four-wheeled vehicle.", True),
+    ("iv. by accidental external means;", False),
+    ("The vehicle was moved by means of a tow rope.", False),
+])
+def test_definition_detection_is_not_triggered_by_any_use_of_means(text, is_definition):
+    """'means' alone tagged 'by accidental external means' -- the core of the
+    own-damage grant -- as a definition."""
+    from claimtriage.retrieval.chunker import ROLE_RULES
+    pattern = dict(ROLE_RULES)["definition"]
+    assert bool(pattern.search(text)) is is_definition
+
+
 def test_chunks_respect_the_token_budget(chunks):
     # Allow headroom: a single indivisible sentence may exceed the target.
     assert all(c.token_estimate <= 320 * 1.6 for c in chunks), [
@@ -166,10 +234,102 @@ def test_role_filter_narrows_to_restrictions(built_index):
 
 
 def test_hybrid_search_returns_scored_hits(built_index):
+    """Order comes from rank fusion; the score is absolute evidence. The two can
+    disagree -- a clause can rank second on fusion while carrying the highest
+    single cosine -- so this asserts the bounds, not the sort."""
     hits = built_index.search("loss or damage to the vehicle insured", top_k=4)
     assert hits
     assert all(0.0 <= h.score <= 1.0 for h in hits)
-    assert hits == sorted(hits, key=lambda h: -h.score)
+
+
+@pytest.mark.parametrize("query", [
+    "loss of or damage to the vehicle insured accidental external means",
+    "use for hire or reward carriage of goods",
+    "notice of claim conditions",
+])
+def test_fused_order_does_not_depend_on_top_k(built_index, query):
+    """Asking for more results must only append to the list, never reorder it.
+
+    Candidate pools used to be `top_k * 3` deep, so a clause just outside the
+    dense pool at k=6 lost its dense vote and dropped out, then ranked third at
+    k=8. On the real corpus that clause was the own-damage grant, and the
+    section 4.1 verdict cited a prospectus line about EMI instalments instead.
+    """
+    short = [h.clause_id for h in built_index.search(query, top_k=3)]
+    long = [h.clause_id for h in built_index.search(query, top_k=8)]
+    assert long[: len(short)] == short
+
+
+def test_fusion_candidate_depth_is_independent_of_top_k(built_index, monkeypatch):
+    """The synthetic corpus is too small for the order test above to catch a
+    regression -- every chunk fits in any pool -- so pin the mechanism too."""
+    depths: list[int] = []
+    real_query = built_index.store.query
+
+    def spy(vector, top_k, where=None):
+        depths.append(top_k)
+        return real_query(vector, top_k, where)
+
+    monkeypatch.setattr(built_index.store, "query", spy)
+    built_index.search("candidate depth probe one", top_k=2)
+    built_index.search("candidate depth probe two", top_k=8)
+    assert len(depths) == 2 and depths[0] == depths[1], depths
+
+
+def test_scores_are_absolute_not_normalised_to_one(built_index):
+    """The weak-retrieval escalation depends on this.
+
+    An earlier version reported `rrf / best_rrf`, which made the top hit 1.0 for
+    every query -- a perfect match and pure gibberish alike -- so the check
+    `best < ESCALATION_MIN_RETRIEVAL_SCORE` could never fire.
+    """
+    from claimtriage.config import get_settings
+
+    floor = get_settings().escalation_min_retrieval_score
+    good = max(h.score for h in built_index.search("hire or reward carriage of goods", top_k=3))
+    junk_hits = built_index.search("zzqx florp quantum blockchain", top_k=3)
+    junk = max((h.score for h in junk_hits), default=0.0)
+    assert good > floor, f"a strong query scored {good}, at or below the escalation floor {floor}"
+    assert junk < floor, f"gibberish scored {junk}; the weak-retrieval escalation can never fire"
+    assert good > junk
+
+
+def test_a_long_lived_index_sees_a_rebuild_done_elsewhere(tmp_path, synthetic_corpus):
+    """The documented order is `docker compose up` then `ingest`. The workers
+    start with an empty index and must notice when another process fills it --
+    before this was fixed, `find_named_clause` stayed empty for their lifetime
+    and the section 4.1 mechanism silently stopped working."""
+    import os
+
+    from claimtriage.config import reload_settings
+    from claimtriage.retrieval.index import ClauseIndex
+    from claimtriage.retrieval.ingest import run_ingest
+    from claimtriage.store import reset_backend
+
+    old = {k: os.environ.get(k) for k in ("INDEX_DIR", "CORPUS_MANIFEST")}
+    os.environ["INDEX_DIR"] = str(tmp_path / "fresh-index")
+    os.environ["CORPUS_MANIFEST"] = str(synthetic_corpus / "sources.yaml")
+    reload_settings()
+    reset_backend()
+    try:
+        server = ClauseIndex()  # the long-lived worker, started before any ingest
+        server.freshness_interval = 0.0
+        assert server.size == 0
+        assert server.find_named_clause("Limitations as to Use") == []
+
+        run_ingest(force=True, index=ClauseIndex())  # `tools ingest`, a separate instance
+
+        hits = server.find_named_clause("Limitations as to Use")
+        assert hits, "the running index never noticed the corpus had been built"
+        assert server.size > 0
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        reload_settings()
+        reset_backend()
 
 
 def test_get_clause_and_neighbours(built_index):
@@ -221,3 +381,13 @@ def test_index_metadata_records_freshness(built_index):
     assert meta.get("chunks")
     assert meta.get("embedding_signature")
     assert "hash" in meta["embedding_signature"]
+
+
+def test_a_chapter_title_does_not_decide_the_role_of_everything_under_it():
+    from claimtriage.retrieval.chunker import _infer_role
+
+    path = "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS"
+    text = "This Policy and the Schedule shall be read together."
+    assert _infer_role(path, text) == "condition"
+    # with nothing nearer to go on, the chapter title still counts
+    assert _infer_role("Chapter 2 - Exception, Condition & Deductible > IV", "It is agreed.") == "exclusion"

@@ -440,3 +440,217 @@ def _out_of_corpus(fnol: dict) -> dict:
         "used it for two hours before returning the car undamaged."
     )
     return out
+
+
+# -----------------------------------------------------------------------------
+# Regressions from the review sweep
+# -----------------------------------------------------------------------------
+
+import json as _json
+
+
+class _Sloppy:
+    """A provider that returns the right *content* in the wrong *shapes*.
+
+    Every deviation here is one a real model produces: strings where lists
+    belong, numbers as words or with units, out-of-range values, entities as a
+    list, and the whole object wrapped one level down.
+    """
+
+    name = "sloppy"
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    def complete(self, messages, *, json_mode, max_tokens, temperature):
+        prompt = "\n".join(m["content"] for m in messages)
+        self.prompts.append(prompt)
+        from claimtriage.llm.stub_logic import _clause_ids, _quote_for, detect_step
+
+        step = detect_step(prompt)
+        ids = _clause_ids(prompt, limit=2)
+        if step == "intake_classification":
+            body = {"result": {"claim_type": "Own_Damage", "confidence": "high",
+                               "entities": ["not", "a", "dict"],
+                               "retrieval_queries": "loss of or damage to the vehicle insured"}}
+        elif step == "query_formulation":
+            body = {"modifiers_possible": "yes", "queries": "limitations as to use hire or reward",
+                    "named_clauses_to_fetch": "Limitations as to Use"}
+        elif step == "coverage_analysis":
+            body = {"determination": {
+                "position": "Likely Covered", "confidence": "85%",
+                "summary": ["The loss appears", "to fall within the own damage cover."],
+                "open_questions": "Was the driver licensed?",
+                "governing_clauses": ids[0] if ids else "",
+                "citations": [{"clause_id": c, "quote": _quote_for(prompt, c), "role": "GRANT"} for c in ids],
+            }}
+        elif step == "verification":
+            body = {"verdict": "Verified", "support_score": "0.9", "unsupported_statements": "",
+                    "clauses_in_conflict": "none"}
+        else:  # routing
+            body = {"queue": "Fast Track", "priority": "HIGH", "target_first_touch_hours": "8 hours",
+                    "triggered_rules": "low_value", "reason": ["Low value,", "drivable."]}
+        from claimtriage.llm import Usage
+        return _json.dumps(body), Usage(100, 50), "sloppy-1", {}
+
+    def healthy(self):
+        return True
+
+
+def test_sloppy_model_output_does_not_break_the_run(built_index, valid_fnol):
+    """None of these shape errors is worth a retry, and none may fail a run."""
+    provider = _Sloppy()
+    result = _run(valid_fnol, client=LLMClient(provider=provider))
+    assert result.status != RunStatus.failed, result.error
+    assert result.routing is not None
+    assert result.routing.target_first_touch_hours == 8, "'8 hours' was not parsed"
+    assert result.classification.confidence == pytest.approx(0.8)
+    if result.coverage:
+        assert result.coverage.open_questions == ["Was the driver licensed?"]
+        assert result.coverage.confidence == pytest.approx(0.85)
+
+
+def test_string_queries_are_not_searched_letter_by_letter(built_index, valid_fnol):
+    """The specific defect: `"queries": "limitations..."` sliced with [:2]
+    searched the corpus for the letters 'l' and 'i'."""
+    result = _run(valid_fnol, client=LLMClient(provider=_Sloppy()))
+    searched = " ; ".join(s.tool_query or "" for s in result.steps if s.tool_query)
+    assert "corpus_search(l)" not in searched and "corpus_search(i)" not in searched, searched
+    assert "limitations as to use" in searched.lower()
+
+
+class _GibberishIntake:
+    """An intake that proposes queries the corpus cannot answer."""
+
+    name = "gibberish"
+
+    def complete(self, messages, *, json_mode, max_tokens, temperature):
+        from claimtriage.llm import Usage
+        return _json.dumps({"claim_type": "undetermined", "confidence": 0.2,
+                            "retrieval_queries": ["zzqx florp quantum blockchain", "qqqq wwww"]}), \
+            Usage(10, 10), "g-1", {}
+
+    def healthy(self):
+        return True
+
+
+def test_weak_retrieval_escalates_instead_of_answering(built_index, valid_fnol):
+    """F7. Before scores were made absolute this could never fire: the top hit
+    scored 1.0 for every query, gibberish included."""
+    from claimtriage.contracts.models import EscalationReason
+
+    result = _run(valid_fnol, client=LLMClient(provider=_GibberishIntake()))
+    assert result.status == RunStatus.escalated
+    assert result.escalation.reason == EscalationReason.weak_retrieval
+    assert result.routing.queue == RoutingQueue.human_escalation
+    assert not result.citations
+
+
+def test_every_step_is_published_as_it_completes(built_index, valid_fnol):
+    seen: list[dict] = []
+    result = _run(valid_fnol, on_step=seen.append)
+    assert [s["step"] for s in seen] == [s.step for s in result.steps]
+    assert [s["index"] for s in seen] == list(range(1, len(seen) + 1))
+
+
+def test_a_failing_progress_callback_cannot_fail_the_run(built_index, valid_fnol):
+    def broken(_record):
+        raise RuntimeError("progress sink is down")
+
+    result = _run(valid_fnol, on_step=broken)
+    assert result.status != RunStatus.failed
+
+
+def test_welfare_warning_makes_routing_urgent(built_index, valid_fnol):
+    fnol = copy.deepcopy(valid_fnol)
+    outcome = validate_submission(fnol, correlation_id="cid-w", client_id="pytest")
+    warnings = [w.model_dump(mode="json") for w in outcome.warnings] + [
+        {"field": "incident.description", "rule": "welfare_concern", "message": "distress",
+         "severity": "warning", "observed": None}
+    ]
+    result = execute_run(run_id="run-welfare", correlation_id="cid-w",
+                         claim=outcome.fnol.model_dump(mode="json"), warnings=warnings, use_cache=False)
+    assert result.routing.priority == "urgent"
+    assert "welfare_concern" in result.routing.triggered_rules
+    assert result.routing.reason.lower().startswith("contact the customer")
+
+
+def test_restricted_use_cites_the_limitations_clause(built_index, valid_fnol):
+    """The trace should show the clause find_named_clause fetched -- not
+    whichever three ids came first (which once meant a clause about EMIs)."""
+    result = _run(_delivery(valid_fnol))
+    sections = " | ".join(c.section_path.lower() for c in result.citations)
+    assert "limitations as to use" in sections, sections
+
+
+def test_citation_roles_come_from_the_index(built_index, valid_fnol):
+    """An exclusion clause must not be badged 'grant' because a model said so."""
+    from claimtriage.retrieval.index import get_index
+
+    result = _run(_delivery(valid_fnol))
+    index = get_index()
+    for citation in result.citations:
+        assert citation.role == index.get_clause(citation.clause_id).role
+
+
+def test_context_keeps_a_grant_when_named_lookups_score_higher():
+    """In the section 4.1 run the named-clause lookups (fixed scores of 1.0 and
+    0.7) filled every context slot and the own-damage grant fell out, so the
+    analysis could cite only what qualifies cover, never the cover itself."""
+    from claimtriage.agents.graph import AgentRunner
+    from claimtriage.retrieval.index import SearchHit
+
+    def hit(n: int, role: str, score: float) -> SearchHit:
+        return SearchHit(clause_id=f"d::s::{n:04d}", document_id="d", document_title="D",
+                         section_path=f"S{n}", page=1, role=role, text="t", score=score)
+
+    hits = [hit(i, "restriction", 1.0) for i in range(6)] + [hit(i, "exclusion", 0.9) for i in range(6, 12)]
+    hits.append(hit(99, "grant", 0.4))
+    chosen = AgentRunner._select_context(AgentRunner, hits, limit=6)
+    assert len(chosen) == 6
+    assert "grant" in {h.role for h in chosen}
+    assert len({h.clause_id for h in chosen}) == 6
+
+
+def test_a_rules_override_does_not_print_the_overruled_reason_as_fact(built_index, valid_fnol):
+    """The distress run read: "Low value, drivable vehicle, no third party ...
+    Raised to surveyor_assignment by mandatory rules: vehicle_undrivable,
+    high_value" -- two contradictory statements about one car, side by side."""
+    fnol = copy.deepcopy(valid_fnol)
+    fnol["incident"]["vehicle_drivable"] = False
+    fnol["incident"]["estimated_repair_cost_inr"] = 260000.0
+    result = _run(fnol)
+    assert result.routing.queue == RoutingQueue.surveyor_assignment
+    reason = result.routing.reason
+    assert reason.startswith("Raised from"), reason
+    assert "vehicle_undrivable" in reason and "proposed" in reason
+
+
+def test_quotes_carry_the_role_they_are_badged_with(built_index, valid_fnol):
+    """A card badged EXCLUSION once quoted "This Policy and the Schedule shall
+    be read together". Where the clause has a sentence that earned its role,
+    that is the sentence quoted. (A role can also come from a heading, or be
+    the default, with no such sentence in the text.)"""
+    from claimtriage.retrieval.chunker import ROLE_RULES
+    from claimtriage.retrieval.index import get_index
+
+    rules = dict(ROLE_RULES)
+    for fnol in (valid_fnol, _delivery(valid_fnol)):
+        for citation in _run(fnol).citations:
+            pattern = rules.get(citation.role)
+            if pattern and pattern.search(get_index().get_clause(citation.clause_id).text):
+                assert pattern.search(citation.quote), (citation.role, citation.quote)
+
+
+def test_stub_quotes_the_sentence_that_earned_the_role():
+    from claimtriage.llm.stub_logic import _quote_for
+
+    prompt = (
+        "[w::conditions::0017] (exclusion, Wording, 3. CONDITIONS, page 3)\n"
+        "This Policy and the Schedule shall be read together and any word shall bear the same meaning. "
+        "The Company shall not be liable for any claim arising from use otherwise than in accordance "
+        "with the limitations as to use.\n\n"
+    )
+    quote = _quote_for(prompt, "w::conditions::0017", "exclusion")
+    assert quote.startswith("The Company shall not be liable"), quote
+    assert _quote_for(prompt, "w::conditions::0017", None).startswith("This Policy")

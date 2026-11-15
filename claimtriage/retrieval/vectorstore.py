@@ -59,6 +59,14 @@ class VectorStore:
     def healthy(self) -> bool:
         return True
 
+    def reload(self) -> None:
+        """Drop anything cached in-process and re-read the backing store.
+
+        Called when the index version moves under a long-lived reader -- the
+        corpus was rebuilt by another process and this one is still holding
+        the old copy.
+        """
+
 
 # -----------------------------------------------------------------------------
 # Local numpy store
@@ -73,6 +81,10 @@ class LocalVectorStore(VectorStore):
         self.records_path = self.dir / "chunks.jsonl"
         self._records: list[dict] = []
         self._matrix: np.ndarray = np.zeros((0, 0), dtype=np.float32)
+        self._load()
+
+    def reload(self) -> None:
+        self._records, self._matrix = [], np.zeros((0, 0), dtype=np.float32)
         self._load()
 
     def _load(self) -> None:
@@ -275,6 +287,9 @@ class ChromaVectorStore(VectorStore):
             return True
         except Exception:
             return False
+
+    def reload(self) -> None:
+        self._cache = None
 
 
 def _flatten(meta: dict) -> dict:

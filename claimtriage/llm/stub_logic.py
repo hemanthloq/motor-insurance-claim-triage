@@ -27,6 +27,8 @@ import json
 import re
 from typing import Any
 
+from ..retrieval.chunker import ROLE_RULES
+
 STEP_TAG = re.compile(r"\[\[STEP:([a-z_]+)\]\]")
 CLAUSE_TAG = re.compile(r"\[([a-z0-9_]+::[a-z0-9\-]+::\d{4})\]")
 
@@ -86,7 +88,68 @@ def _clause_ids(prompt: str, limit: int = 4) -> list[str]:
     return seen
 
 
-def _quote_for(prompt: str, clause_id: str, words: int = 18) -> str:
+#: The context block's header line: "[clause_id] (role, title, section, page N)".
+_HEADER = re.compile(r"\[([a-z0-9_]+::[a-z0-9\-]+::\d{4})\]\s*\((\w+),\s*(.*?),\s*page\s*\d+\)")
+
+
+def _clauses_by_role(prompt: str) -> list[tuple[str, str, str]]:
+    """(clause_id, role, header text) for each passage, in context order."""
+    out, seen = [], set()
+    for match in _HEADER.finditer(prompt):
+        cid = match.group(1)
+        if cid in seen:
+            continue
+        seen.add(cid)
+        out.append((cid, match.group(2).lower(), match.group(3).lower()))
+    return out
+
+
+def _pick(clauses, role: str, prefer: str = "", exclude=()) -> str | None:
+    """First clause of a role, preferring one whose heading mentions `prefer`."""
+    pool = [c for c in clauses if c[1] == role and c[0] not in exclude]
+    for cid, _role, header in pool:
+        if prefer and prefer in header:
+            return cid
+    return pool[0][0] if pool else None
+
+
+def _choose_citations(prompt: str, restricted: bool) -> list[str]:
+    """Which clauses the stub cites.
+
+    It picks by the role tag and section heading printed in the context block
+    -- it does not read the clauses, and nothing here should be mistaken for
+    reasoning. What it does buy is a trace that shows the retrieval mechanism
+    working: the clauses `find_named_clause` fetched are the ones that appear in
+    the answer, instead of whichever three ids happened to come first. The
+    first version did take the first three, and for the section 4.1 case it
+    cited a clause about paying the premium in EMI instalments.
+    """
+    clauses = _clauses_by_role(prompt)
+    if not clauses:
+        return _clause_ids(prompt, limit=3)
+    chosen: list[str] = []
+    if restricted:
+        order = [("restriction", "limitations as to use"), ("exclusion", "exception"),
+                 ("grant", "loss of or damage")]
+    else:
+        # A covered position rests on the grant and the conditions it is
+        # subject to. Citing an exclusion here put a "BUT -- takes cover away"
+        # card under a LIKELY COVERED stamp, quoting a clause about the
+        # insurer's option to repair.
+        order = [("grant", "loss of or damage"), ("condition", "condition"), ("condition", "")]
+    for role, prefer in order:
+        cid = _pick(clauses, role, prefer, exclude=chosen)
+        if cid:
+            chosen.append(cid)
+    for cid, _role, _header in clauses:  # top up from what is left
+        if len(chosen) >= 3:
+            break
+        if cid not in chosen:
+            chosen.append(cid)
+    return chosen[:3]
+
+
+def _quote_for(prompt: str, clause_id: str, role: str | None = None, words: int = 18) -> str:
     """Lift a verbatim span from the context so citations actually resolve.
 
     The context block puts the clause metadata on the same line as the marker
@@ -105,14 +168,49 @@ def _quote_for(prompt: str, clause_id: str, words: int = 18) -> str:
     body = tail[newline + 1 :] if newline != -1 else tail
     # stop at the blank line that separates this passage from the next
     body = body.split("\n\n", 1)[0]
-    return " ".join(body.split()[:words])
+    return " ".join(_role_sentence(body, role).split()[:words])
+
+
+def _role_sentence(body: str, role: str | None) -> str:
+    """The passage from the first sentence that carries the clause's role on.
+
+    Quoting the first words of every clause put "This Policy and the Schedule
+    shall be read together" on a card badged EXCLUSION -- true to the text,
+    and no use to a handler. The role came from the chunker's own rules, so
+    the sentence those rules matched is the one worth quoting.
+    """
+    pattern = dict(ROLE_RULES).get(role or "")
+    if pattern is None:
+        return body
+    for match in re.finditer(r"[^.;:]+(?:[.;:]|$)", body):
+        if pattern.search(match.group(0)) and len(match.group(0).split()) >= 4:
+            return body[match.start():].lstrip()
+    return body
+
+
+_CUSTOMER_TEXT = re.compile(r"<<<CUSTOMER_TEXT\s*(.*?)\s*CUSTOMER_TEXT", re.DOTALL)
 
 
 def _claim_type(prompt: str) -> str:
-    lowered = prompt.lower()
+    """Classify from the customer's words and the structured flags only.
+
+    Scanning the whole prompt -- as an earlier version did -- reads the
+    structured summary too, which always contains the key `"vehicle_stolen"`.
+    The word "stolen" therefore matched for every claim, and the stub labelled a
+    food-delivery kerb strike a theft. The same mistake had already been fixed
+    once for restricted use (see `_is_restricted`) and was missed here.
+    """
+    if re.search(r'"vehicle_stolen"\s*:\s*true', prompt):
+        return "theft"
+    block = _CUSTOMER_TEXT.search(prompt)
+    text = (block.group(1) if block else "").lower()
     for pattern, claim_type in _TYPE_RULES:
-        if re.search(pattern, lowered):
+        if claim_type == "theft":
+            continue  # theft comes from the structured flag above, not from prose
+        if re.search(pattern, text):
             return claim_type
+    if re.search(r'"third_party_involved"\s*:\s*true', prompt):
+        return "third_party"
     return "own_damage"
 
 
@@ -164,14 +262,13 @@ def respond(prompt: str) -> str:
         )
 
     if step == "coverage_analysis":
+        cited = _choose_citations(prompt, restricted)
+        clauses = cited  # governing / modifying lists below follow the same order
+        roles = {cid: role for cid, role, _header in _clauses_by_role(prompt)}
         citations = [
-            {
-                "clause_id": cid,
-                "quote": _quote_for(prompt, cid),
-                "role": "restriction" if restricted and i == 0 else "grant",
-            }
-            for i, cid in enumerate(clauses[:3])
-            if _quote_for(prompt, cid)
+            {"clause_id": cid, "quote": quote, "role": ""}
+            for cid in cited
+            if (quote := _quote_for(prompt, cid, roles.get(cid)))
         ]
         if restricted:
             return json.dumps(
@@ -187,8 +284,10 @@ def respond(prompt: str) -> str:
                         "the limitations as to use, and the declared use falls within "
                         "the restricted purposes."
                     ),
-                    "governing_clauses": clauses[:1],
-                    "modifying_clauses": clauses[1:3],
+                    # restricted order is (restriction, exclusion, grant): the
+                    # grant governs and the other two modify it
+                    "governing_clauses": clauses[2:3],
+                    "modifying_clauses": clauses[0:2],
                     "open_questions": [
                         "Was the delivery carried out for reward or as a personal favour?"
                     ],
@@ -238,7 +337,11 @@ def respond(prompt: str) -> str:
         return json.dumps(
             {
                 "queue": "fast_track",
-                "reason": "Low value, drivable vehicle, no third party and no injuries.",
+                # The stub does not read the claim's facts, so it must not
+                # assert them: "Low value, drivable vehicle" was printed for an
+                # undrivable car with a Rs 2.6 lakh estimate.
+                "reason": "Stub router: no restricted-use signal, so it proposes the fast track; "
+                          "the mandatory rules decide whether the claim stays there.",
                 "priority": "normal",
                 "target_first_touch_hours": 24,
             }

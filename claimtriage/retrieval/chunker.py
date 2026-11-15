@@ -74,8 +74,12 @@ HEADING_PATTERNS: list[tuple[int, re.Pattern[str]]] = [
     (1, re.compile(r"^\s*(\d{1,2}\.\s+[A-Z][A-Z \-&'/(),]{6,90})$")),
     # level 2: roman numeral clause  I.  II.  III.
     (2, re.compile(r"^\s*([IVXLC]{1,5}\.)\s+\S")),
-    # level 3: lettered sub-clause  a.  b)  (c)
-    (3, re.compile(r"^\s*\(?([a-z])[.)]\s+\S")),
+    # Lettered and lower-case roman markers -- a.  b)  (c)  (i) -- are NOT
+    # headings. They are the items of the clause above them, and an earlier
+    # version that treated them as headings shredded the own-damage grant into
+    # one-line chunks like "By riot and strike;" with no lead-in sentence, so the
+    # most important clause in the policy could not be cited in a form anyone
+    # could read. They now stay inline, marker and all, in their parent clause.
 ]
 
 #: Named clauses the wording refers to by name from elsewhere. Recording these
@@ -99,7 +103,10 @@ ROLE_RULES: list[tuple[str, re.Pattern[str]]] = [
     ("restriction", re.compile(r"\b(limitation[s]? as to use|hire or reward|carriage of goods|motor trade|organised racing|pace making|speed testing|restrict)\b", re.I)),
     ("procedure", re.compile(r"\b(claim procedure|intimat|survey(or)?|documents required|lodge|register (a|the) claim|cashless|reimbursement)\b", re.I)),
     ("condition", re.compile(r"\b(condition[s]?|precedent to|the insured shall|notice shall be given|duty of the insured)\b", re.I)),
-    ("definition", re.compile(r"\b(means|shall mean|definition[s]?|is defined as|for the purpose of this)\b", re.I)),
+    # "means" alone matched "By accidental external means;" -- the core of the
+    # own-damage grant -- and tagged it a definition. A definition says that a
+    # term *means the* something.
+    ("definition", re.compile(r"\b(shall mean|means (the|any|a|an|that)\b|definitions?\b|is defined as|for the purpose of this)", re.I)),
     ("grant", re.compile(r"\b(the company will indemnify|the company shall indemnify|loss of or damage to|we will pay|is covered)\b", re.I)),
 ]
 
@@ -145,6 +152,9 @@ class _Leaf:
     heading_path: list[str]
     text: str
     page: int
+    #: level of the heading this leaf sits under: 0 chapter/section,
+    #: 1 numbered section, 2 roman-numbered item, -1 before any heading
+    level: int = -1
 
 
 def _slug(text: str, limit: int = 48) -> str:
@@ -187,10 +197,19 @@ def _match_heading(line: str, previous: str | None) -> tuple[int, str] | None:
     the line above it is absent, blank, or ends a sentence.
     """
     stripped = line.strip()
-    if not stripped or len(stripped) > 110:
+    if not stripped:
         return None
+    # The length cap is for *titles*. A roman-numbered item carries its whole
+    # clause on the same line as its marker ("III. Any accidental loss damage
+    # and/or liability caused ... whilst the vehicle insured herein is"), so an
+    # earlier version that capped every heading at 110 characters silently
+    # demoted every long item to body text, glued III, IV, V and VI onto II, and
+    # separated the General Exceptions' lead-in from the rule it introduces.
+    is_title_length = len(stripped) <= 110
     for level, pattern in HEADING_PATTERNS:
         if pattern is _ALL_CAPS_HEADING:
+            continue
+        if level < 2 and not is_title_length:
             continue
         match = pattern.match(stripped)
         if match:
@@ -205,7 +224,7 @@ def _match_heading(line: str, previous: str | None) -> tuple[int, str] | None:
                 return None
             return level, stripped if level < 2 else match.group(1).rstrip(".)")
 
-    match = _ALL_CAPS_HEADING.match(stripped)
+    match = _ALL_CAPS_HEADING.match(stripped) if is_title_length else None
     if match and (previous is None or not previous.strip() or previous.rstrip().endswith((".", ":", ";", "?", "!"))):
         return 1, match.group(1).strip()
     return None
@@ -214,6 +233,14 @@ def _match_heading(line: str, previous: str | None) -> tuple[int, str] | None:
 def _segment(document: LoadedDocument) -> list[_Leaf]:
     leaves: list[_Leaf] = []
     path: list[str] = [document.title]
+    # A real stack of (level, label). The previous version sliced the path to a
+    # fixed depth (`path[:level + 1]`), which only works when no level is ever
+    # skipped. Policy wordings skip levels constantly -- a chapter goes straight
+    # to roman items with no numbered section between -- and the slice then
+    # kept the previous *sibling* as a parent, so clause II was filed under
+    # clause I ("Chapter 2 > I > II") and III under II.
+    stack: list[tuple[int, str]] = []
+    current_level = -1
     buffer: list[str] = []
     page_of_buffer = 1
 
@@ -221,7 +248,7 @@ def _segment(document: LoadedDocument) -> list[_Leaf]:
         nonlocal buffer
         body = "\n".join(buffer).strip()
         if body:
-            leaves.append(_Leaf(heading_path=list(path), text=body, page=page))
+            leaves.append(_Leaf(heading_path=list(path), text=body, page=page, level=current_level))
         buffer = []
 
     for page in document.pages:
@@ -231,16 +258,18 @@ def _segment(document: LoadedDocument) -> list[_Leaf]:
             if heading is not None:
                 level, label = heading
                 flush(page_of_buffer)
-                # levels are relative to the document title at index 0
-                depth = level + 1
-                path = path[:depth] + [label]
+                while stack and stack[-1][0] >= level:
+                    stack.pop()
+                stack.append((level, label))
+                path = [document.title] + [entry[1] for entry in stack]
+                current_level = level
                 page_of_buffer = page.number
-                # a level-2/3 marker introduces text on the same line
-                remainder = line.strip()
+                # A roman-numbered item carries its clause on the same line.
+                # Keep the marker with it: a citation reading "III. Any
+                # accidental loss ..." can be found in the printed policy; one
+                # reading "Any accidental loss ..." has lost its address.
                 if level >= 2:
-                    remainder = re.sub(r"^\s*\(?[IVXLCa-z]{1,5}[.)]\s*", "", line.strip())
-                    if remainder:
-                        buffer.append(remainder)
+                    buffer.append(line.strip())
                 continue
             if not buffer:
                 page_of_buffer = page.number
@@ -251,10 +280,20 @@ def _segment(document: LoadedDocument) -> list[_Leaf]:
 
 
 def _infer_role(section_path: str, text: str) -> str:
-    haystack = f"{section_path}\n{text}"
-    for role, pattern in ROLE_RULES:
-        if pattern.search(haystack):
-            return role
+    """Nearest evidence first: the clause's own heading, then its text, then
+    the headings above it.
+
+    Matching the whole path at once let a chapter title decide for everything
+    under it: "Chapter 2 - Exception, Condition & Deductible > 3. CONDITIONS"
+    was tagged an exclusion on the word "Exception", and the UI badged "This
+    Policy and the Schedule shall be read together" as taking cover away.
+    """
+    parts = [p for p in section_path.split(" > ") if p]
+    own, ancestors = (parts[-1], " ".join(parts[:-1])) if parts else ("", "")
+    for haystack in (own, text, ancestors):
+        for role, pattern in ROLE_RULES:
+            if pattern.search(haystack):
+                return role
     return "grant"
 
 
@@ -297,6 +336,33 @@ def _split_long(text: str, budget_tokens: int, overlap_tokens: int) -> list[str]
     return [p for p in pieces if p]
 
 
+def _owner(leaf: "_Leaf") -> tuple[str, ...]:
+    """The section a leaf belongs to, for packing.
+
+    A roman-numbered item (I, II, III) belongs to the section that introduces
+    it, not to itself. So the lead-in -- "The Company shall not be liable under
+    this Policy in respect of" -- and the items that complete it -- "III. ...
+    whilst the vehicle is being used otherwise than in accordance with the
+    'Limitations as to Use'" -- share an owner and pack into one chunk, up to
+    the token budget. Cited apart, the item reads as a fragment with no subject;
+    cited together, it is the rule.
+
+    A new numbered section ("2. DEDUCTIBLE") is its own owner, so unrelated
+    provisions that happen to follow each other are never merged.
+    """
+    return tuple(leaf.heading_path[:-1]) if leaf.level >= 2 else tuple(leaf.heading_path)
+
+
+def _common_path(paths: list[list[str]]) -> list[str]:
+    common = list(paths[0])
+    for other in paths[1:]:
+        n = 0
+        while n < min(len(common), len(other)) and common[n] == other[n]:
+            n += 1
+        common = common[:n]
+    return common
+
+
 def chunk_document(
     document: LoadedDocument,
     *,
@@ -315,7 +381,9 @@ def chunk_document(
         group = list(group)
         if not group:
             return
-        path = group[0].heading_path
+        # A packed group is labelled by the path its leaves share, so a chunk
+        # holding exceptions I-IV is filed under "GENERAL EXCEPTIONS", not "I".
+        path = _common_path([leaf.heading_path for leaf in group])
         section_path = " > ".join(path[1:]) or "(preamble)"
         heading = path[-1] if len(path) > 1 else document.title
         body = "\n".join(leaf.text for leaf in group).strip()
@@ -350,7 +418,7 @@ def chunk_document(
 
     for leaf in leaves:
         leaf_tokens = estimate_tokens(leaf.text)
-        same_section = bool(pending) and pending[0].heading_path == leaf.heading_path
+        same_section = bool(pending) and _owner(pending[0]) == _owner(leaf)
         if same_section and pending_tokens + leaf_tokens <= chunk_tokens:
             pending.append(leaf)
             pending_tokens += leaf_tokens

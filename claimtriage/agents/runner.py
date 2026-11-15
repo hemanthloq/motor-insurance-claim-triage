@@ -103,6 +103,7 @@ def execute_run(
     index: Any = None,
     prompt_set: str | None = None,
     use_cache: bool | None = None,
+    on_step=None,
 ) -> TriageResult:
     settings = get_settings()
     set_correlation_id(correlation_id)
@@ -150,6 +151,7 @@ def execute_run(
             client=client,
             index=index,
             prompt_set=prompt_set,
+            on_step=on_step,
         )
         state = runner.run()
         result = _assemble(
@@ -228,9 +230,14 @@ def _assemble(
         )
         if hit is None:
             continue
-        role = raw.get("role") if raw.get("role") in {
+        # The role shown is the index's, not the model's. The index tags every
+        # clause deterministically at ingest; the model's label is its opinion,
+        # and showing it produced "General Exceptions ... (grant)" -- an
+        # exclusion clause badged as the thing it takes away. The model's
+        # label is still used, but only where the index has none.
+        role = hit.role if hit.role in {
             "grant", "restriction", "exclusion", "condition", "procedure", "definition"
-        } else hit.role
+        } else (raw.get("role") or "grant")
         citations.append(
             Citation(
                 clause_id=hit.clause_id,

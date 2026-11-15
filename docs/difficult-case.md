@@ -181,7 +181,7 @@ docker compose run --rm tools search "otherwise than in accordance with the limi
 
 # one clause with its neighbours
 docker compose run --rm tools clause \
-  il_private_car_package_wording::chapter-4-limitations-as-to-use::0151 --neighbours 2
+  il_private_car_package_wording::chapter-4-limitations-as-to-use::0132 --neighbours 2
 ```
 
 And the reference case can be run on its own:

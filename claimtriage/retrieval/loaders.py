@@ -137,18 +137,22 @@ def strip_running_lines(pages: list[LoadedPage]) -> list[LoadedPage]:
     and every clause in the document is filed under it. Removing it is worth
     more to retrieval quality than any amount of tuning further downstream.
     """
-    if len(pages) < 4:
-        return pages
-    counts: dict[str, int] = {}
-    for page in pages:
-        for line in {l.strip() for l in page.text.split("\n") if l.strip()}:
-            if len(line) <= 100:
-                counts[line] = counts.get(line, 0) + 1
-    threshold = max(3, int(len(pages) * RUNNING_LINE_SHARE))
-    furniture = {line for line, count in counts.items() if count >= threshold}
-    page_number_re = re.compile(r"^(?:page\s+)?\d{1,3}(?:\s*/\s*\d{1,3})?$", re.IGNORECASE)
-    if not furniture:
-        return pages
+    # Repetition only means "furniture" once there are enough pages to repeat
+    # on; a short document keeps its repeated lines but still loses page numbers.
+    furniture: set[str] = set()
+    if len(pages) >= 4:
+        counts: dict[str, int] = {}
+        for page in pages:
+            for line in {l.strip() for l in page.text.split("\n") if l.strip()}:
+                if len(line) <= 100:
+                    counts[line] = counts.get(line, 0) + 1
+        threshold = max(3, int(len(pages) * RUNNING_LINE_SHARE))
+        furniture = {line for line, count in counts.items() if count >= threshold}
+    # "Page 3 of 8" is unique on every page, so the repetition test above never
+    # catches it -- and it was glued onto the front of eight chunks, one of which
+    # the agent then cited as a clause. Numbers alone, "3/8" and "Page 3 of 8"
+    # are all page furniture.
+    page_number_re = re.compile(r"^(?:page\s+)?\d{1,3}(?:\s*(?:/|of)\s*\d{1,3})?$", re.IGNORECASE)
     cleaned = []
     for page in pages:
         kept = [

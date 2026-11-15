@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     # ---- guardrails (L4) ----------------------------------------------------
     guardrails_enabled: bool = True
     toxicity_threshold: float = 0.60
-    injection_threshold: float = 0.50
+    injection_threshold: float = 0.90  # block at or above this (single or combined)
 
     # ---- prompts (L2) -------------------------------------------------------
     prompt_set: str = "v2"

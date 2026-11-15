@@ -2,3 +2,5 @@
 pytest==8.3.4
 pytest-asyncio==0.25.0
 locust==2.32.5
+# scripts/ui_e2e.py -- drives the Chrome or Edge already installed; no browser download
+playwright==1.64.1
